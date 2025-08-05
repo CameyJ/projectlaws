@@ -1,0 +1,72 @@
+.login-container {
+  display: flex;
+  min-height: 100vh;
+  background: #1a0737;
+}
+.login-box {
+  width: 400px;
+  background: #fff;
+  padding: 2.5rem 2rem 2rem 2rem;
+  border-radius: 20px 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: auto 0;
+  box-shadow: 0 0 24px 0 #28156e2b;
+}
+.login-logo {
+  max-width: 170px;
+  margin-bottom: 1rem;
+}
+.login-box h2 {
+  color: #7e36fc;
+  margin-bottom: 1.5rem;
+}
+.login-box label {
+  margin-top: 1rem;
+  font-weight: 500;
+}
+.login-box input[type="email"],
+.login-box input[type="password"] {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.3rem;
+  border-radius: 7px;
+  border: 1px solid #dedede;
+  margin-bottom: 0.5rem;
+}
+.login-box button {
+  background: #ff6e36;
+  color: #fff;
+  font-weight: bold;
+  width: 100%;
+  border: none;
+  border-radius: 7px;
+  padding: 0.8rem 0;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.login-box button:hover {
+  background: #ff4600;
+}
+.login-error {
+  color: #cc1818;
+  margin-top: 1rem;
+}
+.login-illustration {
+  flex: 1;
+  background: linear-gradient(180deg, #2e0c64 0%, #390c62 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.login-illustration img {
+  width: 400px;
+  max-width: 85%;
+  animation: rocket 3s infinite alternate;
+}
+@keyframes rocket {
+  0% { transform: translateY(0);}
+  100% { transform: translateY(-18px);}
+}
