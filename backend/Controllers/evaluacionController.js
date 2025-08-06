@@ -1,43 +1,9 @@
-const calcularNivel = (porcentaje) => {
-  if (porcentaje < 30) return 'Inicial';
-  if (porcentaje < 60) return 'Básico';
-  if (porcentaje < 80) return 'Intermedio';
-  return 'Avanzado';
-};
-
-const evaluarNormativa = (controles, respuestas) => {
-  let total = 0;
-  let correctos = 0;
-  const incumplimientos = [];
-
-  for (const control of controles) {
-    total += control.peso;
-    const valor = respuestas[control.clave];
-
-    if (valor) {
-      correctos += control.peso;
-    } else {
-      incumplimientos.push({
-        control: control.pregunta,
-        articulo: control.articulo,
-        recomendacion: control.recomendacion
-      });
-    }
-  }
-
-  const cumplimiento = Math.round((correctos / total) * 100);
-  const nivel = calcularNivel(cumplimiento);
-
-  return { cumplimiento, nivel, incumplimientos };
-};
-
 const controlesGDPR = require('../data/gdpr');
 const controlesSOX = require('../data/sox');
 
 const evaluarCumplimiento = (req, res) => {
-  const { empresa, normativa, respuestas } = req.body;
-
-  let controles;
+  const { normativa, respuestas } = req.body;
+  let controles = [];
 
   switch (normativa.toUpperCase()) {
     case 'GDPR':
@@ -47,15 +13,48 @@ const evaluarCumplimiento = (req, res) => {
       controles = controlesSOX;
       break;
     default:
-      return res.status(400).json({ error: 'Normativa no soportada' });
+      return res.status(400).json({ error: 'Normativa no válida' });
   }
 
-  const resultado = evaluarNormativa(controles, respuestas);
+  const total = controles.length;
+  let puntos = 0;
+  const incumplimientos = [];
 
-  res.json({
-    empresa,
-    normativa,
-    ...resultado
+  controles.forEach((control) => {
+    const valor = respuestas[control.clave];
+    if (valor === 'true') {
+      puntos += 1;
+    } else if (valor === 'partial') {
+      puntos += 0.5;
+      incumplimientos.push({
+        control: control.pregunta,
+        recomendacion: control.recomendacion,
+        articulo: control.articulo,
+      });
+    } else {
+      // '' o 'false'
+      incumplimientos.push({
+        control: control.pregunta,
+        recomendacion: control.recomendacion,
+        articulo: control.articulo,
+      });
+    }
+  });
+
+  const cumplimiento = total > 0
+    ? Math.round((puntos / total) * 100)
+    : 0;
+
+  // Asignar nivel según porcentaje
+  let nivel = 'Inicial';
+  if (cumplimiento >= 80) nivel = 'Avanzado';
+  else if (cumplimiento >= 60) nivel = 'Intermedio';
+  else if (cumplimiento >= 40) nivel = 'Básico';
+
+  return res.json({
+    cumplimiento,
+    nivel,
+    incumplimientos,
   });
 };
 

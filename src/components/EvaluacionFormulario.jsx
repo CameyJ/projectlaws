@@ -12,21 +12,17 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         .then((res) => res.json())
         .then((data) => {
           setControles(data);
-          // Inicializar todas las respuestas como false
           const estadoInicial = {};
           data.forEach((control) => {
-            estadoInicial[control.clave] = false;
+            estadoInicial[control.clave] = '';
           });
           setRespuestas(estadoInicial);
         });
     }
   }, [normativaSeleccionada]);
 
-  const handleChange = (clave, valor) => {
-    setRespuestas({
-      ...respuestas,
-      [clave]: valor === 'true',
-    });
+  const handleRespuesta = (clave, valor) => {
+    setRespuestas((prev) => ({ ...prev, [clave]: valor }));
   };
 
   const handleSubmit = async (e) => {
@@ -54,19 +50,58 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
       <form onSubmit={handleSubmit}>
         {controles.map((control) => (
-          <div key={control.clave}>
-            <label>{control.pregunta}</label>
-            <select
-              value={respuestas[control.clave]}
-              onChange={(e) => handleChange(control.clave, e.target.value)}
-            >
-              <option value="true">Sí</option>
-              <option value="false">No</option>
-            </select>
+          <div key={control.clave} style={{ marginBottom: '20px' }}>
+            <p><strong>{control.pregunta}</strong></p>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => handleRespuesta(control.clave, 'true')}
+                style={{
+                  backgroundColor: respuestas[control.clave] === 'true' ? '#4CAF50' : '#e0e0e0',
+                  color: respuestas[control.clave] === 'true' ? 'white' : 'black',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✔️ Sí
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRespuesta(control.clave, 'partial')}
+                style={{
+                  backgroundColor: respuestas[control.clave] === 'partial' ? '#FFC107' : '#e0e0e0',
+                  color: respuestas[control.clave] === 'partial' ? 'white' : 'black',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                ⚠️ Parcial
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRespuesta(control.clave, 'false')}
+                style={{
+                  backgroundColor: respuestas[control.clave] === 'false' ? '#F44336' : '#e0e0e0',
+                  color: respuestas[control.clave] === 'false' ? 'white' : 'black',
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                ❌ No
+              </button>
+            </div>
           </div>
         ))}
 
-        <button type="submit">Evaluar Cumplimiento</button>
+        <button type="submit" style={{ marginTop: '20px', padding: '10px 15px' }}>
+          Evaluar Cumplimiento
+        </button>
       </form>
 
       {resultado && (
