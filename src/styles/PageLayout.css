@@ -1,8 +1,9 @@
 .page-container {
-  min-height: calc(100vh - 80px); /* Ajusta el alto según tu navbar */
+  min-height: calc(100vh - 100px); /* Ajusta este valor si tu navbar es más pequeña */
   width: 100vw;
   background: #fafbfc;
-  padding: 3rem 2rem 2rem 2rem;
+  /* Padding: top right bottom left */
+  padding: 100px 2rem 2rem 2rem;  /* <- 100px top igual a navbar */
   box-sizing: border-box;
   margin: 0;
   display: flex;
@@ -18,19 +19,21 @@
   color: #243040;
 }
 
+/* Responsive para pantallas medianas */
 @media (max-width: 900px) {
   .page-container {
-    padding: 1.5rem 1rem;
+    padding: 80px 1rem 1.5rem 1rem; /* Navbar un poco más compacta */
   }
   .page-container h1 {
     font-size: 2.1rem;
   }
 }
 
+/* Responsive para móviles */
 @media (max-width: 600px) {
   .page-container {
-    padding: 0.8rem 0.5rem;
-    min-height: calc(100vh - 70px);
+    min-height: calc(100vh - 70px); /* Navbar aún más pequeña */
+    padding: 70px 0.5rem 0.8rem 0.5rem;
   }
   .page-container h1 {
     font-size: 1.25rem;

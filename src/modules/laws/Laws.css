@@ -1,0 +1,58 @@
+.evaluation-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 100%;
+}
+
+.evaluation-header {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.evaluation-img {
+  width: 120px;
+  height: auto;
+  border-radius: 1.2rem;
+  box-shadow: 0 2px 16px #0001;
+}
+
+.laws-list {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.law-card {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 1px 10px #0002;
+  padding: 1.2rem 2rem;
+  min-width: 220px;
+  font-weight: 600;
+  color: #243040;
+  cursor: pointer;
+  transition: box-shadow 0.18s;
+}
+.law-card:hover {
+  box-shadow: 0 4px 24px #7b4efc22;
+  background: #f7f2ff;
+}
+@media (max-width: 800px) {
+  .evaluation-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .laws-list {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .law-card {
+    min-width: unset;
+    width: 100%;
+  }
+}
