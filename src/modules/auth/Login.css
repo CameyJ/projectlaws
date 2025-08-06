@@ -1,72 +1,180 @@
 .login-container {
   display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 100vh;
-  background: #1a0737;
+  width: 100vw;
+  background: radial-gradient(circle at 75% 60%, #3e137b 45%, #1a0737 100%);
+  /* Puedes ajustar el fondo gradiente si prefieres otro efecto */
+  margin: 0;
+  padding: 0;
 }
+
 .login-box {
-  width: 400px;
   background: #fff;
-  padding: 2.5rem 2rem 2rem 2rem;
-  border-radius: 20px 0 0 20px;
+  border-radius: 22px;
+  box-shadow: 0 8px 32px #0002;
+  padding: 2.8rem 2.2rem;
+  width: 340px;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  margin: auto 0;
-  box-shadow: 0 0 24px 0 #28156e2b;
+  align-items: center;
+  z-index: 2;
 }
+
 .login-logo {
-  max-width: 170px;
-  margin-bottom: 1rem;
-}
-.login-box h2 {
-  color: #7e36fc;
+  width: 180px;
   margin-bottom: 1.5rem;
+  border-radius: 5px;
+  background: #313837;
+  padding: 16px;
 }
-.login-box label {
-  margin-top: 1rem;
-  font-weight: 500;
-}
-.login-box input[type="email"],
-.login-box input[type="password"] {
-  width: 100%;
-  padding: 0.5rem;
-  margin-top: 0.3rem;
-  border-radius: 7px;
-  border: 1px solid #dedede;
-  margin-bottom: 0.5rem;
-}
-.login-box button {
-  background: #ff6e36;
-  color: #fff;
+
+h2 {
+  color: #a446f8;
+  font-size: 2rem;
+  margin-bottom: 1.2rem;
   font-weight: bold;
+  align-self: flex-start;
+}
+
+form {
   width: 100%;
-  border: none;
-  border-radius: 7px;
-  padding: 0.8rem 0;
+}
+
+label {
+  display: block;
+  margin-bottom: 4px;
+  color: #232c3d;
+  font-weight: 500;
+  font-size: 1rem;
+}
+
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1.2px solid #dedede;
+  margin-bottom: 16px;
   font-size: 1.1rem;
+  background: #f8fafb;
+  transition: border 0.18s;
+}
+input[type="email"]:focus,
+input[type="password"]:focus {
+  border-color: #8a3ffc;
+  outline: none;
+}
+
+button[type="submit"] {
+  background: #ff7a2f;
+  color: #fff;
+  font-size: 1.2rem;
+  border: none;
+  border-radius: 9px;
+  padding: 13px 0;
+  width: 100%;
+  margin-top: 8px;
+  font-weight: bold;
+  letter-spacing: .5px;
+  transition: background 0.18s, box-shadow 0.18s;
   cursor: pointer;
-  transition: background 0.2s;
+  box-shadow: 0 2px 8px #0001;
 }
-.login-box button:hover {
-  background: #ff4600;
+button[type="submit"]:hover,
+button[type="submit"]:focus {
+  background: #f95e14;
 }
+
 .login-error {
-  color: #cc1818;
-  margin-top: 1rem;
+  color: #e01a1a;
+  margin-top: 1.3rem;
+  font-weight: 500;
+  font-size: 1.05rem;
 }
+
 .login-illustration {
-  flex: 1;
-  background: linear-gradient(180deg, #2e0c64 0%, #390c62 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 290px;
+  /* No uses flex:1 aquí para mantener proporciones */
+  z-index: 1;
 }
+
 .login-illustration img {
-  width: 400px;
-  max-width: 85%;
-  animation: rocket 3s infinite alternate;
+  width: 300px;         /* Tamaño ideal para escritorio */
+  max-width: 340px;
+  min-width: 180px;
+  height: auto;
+  animation: floatRocket 2.8s ease-in-out infinite alternate;
+  /* Puedes añadir un margin-top si quieres bajarlo un poco: */
+  margin-top: 30px;
 }
-@keyframes rocket {
-  0% { transform: translateY(0);}
-  100% { transform: translateY(-18px);}
+
+
+/* Animación de flotación del cohete */
+@keyframes floatRocket {
+  0% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 8px 16px #0003);
+  }
+  60% {
+    transform: translateY(-18px) scale(1.03);
+    filter: drop-shadow(0 22px 18px #2d00b13a);
+  }
+  100% {
+    transform: translateY(-11px) scale(1.01);
+    filter: drop-shadow(0 12px 14px #1a073744);
+  }
+}
+
+/* Responsive para pantallas medianas/pequeñas */
+@media (max-width: 900px) {
+  .login-container {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .login-box {
+    border-radius: 22px 22px 0 0;
+    width: 90vw;
+    min-height: 340px;
+    margin-bottom: 0;
+  }
+  .login-illustration {
+    padding: 1.5rem 0;
+    width: 100vw;
+    justify-content: center;
+  }
+  .login-illustration img {
+    width: 70vw;
+    max-width: 220px;
+  }
+}
+
+@media (max-width: 500px) {
+  .login-container {
+    padding: 0;
+    min-height: 100vh;
+  }
+  .login-box {
+    padding: 1.6rem 0.7rem;
+    border-radius: 0;
+    width: 99vw;
+  }
+  .login-logo {
+    width: 110px;
+    padding: 8px;
+  }
+  h2 {
+    font-size: 1.15rem;
+  }
+  .login-illustration img {
+    width: 80vw;
+    max-width: 130px;
+  }
 }

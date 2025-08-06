@@ -1,13 +1,16 @@
 import React, { useState } from "react";
 import "./Login.css";
-import logo from "../../assets/logo.PNG"; // Tu logo real
-import rocketImg from "../../assets/Rocket-PNG-High-Quality-Image.png"; // Importa la ilustración del cohete
+import logo from "../../assets/logo.PNG";
+import rocketImg from "../../assets/Rocket-PNG-High-Quality-Image.png";
+import { useNavigate } from "react-router-dom";
 
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,8 +26,9 @@ const Login = ({ onLogin }) => {
       if (res.ok) {
         localStorage.setItem("token", data.token);
         setMsg("Login exitoso. Redirigiendo...");
-        if (onLogin) onLogin(data.nombre);
-        // Puedes agregar redirección con react-router-dom aquí
+        setTimeout(() => {
+          navigate("/home");
+        }, 1200); // 1.2 segundos antes de redirigir
       } else {
         setMsg(data.error || "Error de autenticación");
       }

@@ -1,0 +1,97 @@
+.navbar {
+  width: 100vw;
+  background: #1a0536;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 80px;
+  padding: 0 2vw;
+  box-sizing: border-box;
+}
+
+.navbar-logo img {
+  height: 44px;
+  cursor: pointer;
+}
+
+.navbar-links {
+  flex: 1;
+  display: flex;
+  justify-content: center; /* Centra los links */
+  align-items: center;
+  gap: 2vw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.navbar-links li {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+}
+
+.navbar-links li a {
+  color: #b5a8ff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-decoration: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  transition: background 0.2s;
+  width: 100%;
+  text-align: center;
+  display: block;
+}
+
+.navbar-links li a:hover {
+  background: #24106a;
+  color: #fff;
+}
+
+.logout-btn {
+  margin-left: 2vw;
+  background: #ff7a2f;
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  padding: 12px 28px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.logout-btn:hover {
+  background: #ff4e00;
+}
+
+/* RESPONSIVE para pantallas pequeñas */
+@media (max-width: 900px) {
+  .navbar {
+    flex-direction: column;
+    height: auto;
+    padding: 8px 2vw;
+  }
+  .navbar-links {
+    gap: 1vw;
+  }
+  .logout-btn {
+    margin: 16px 0 0 0;
+    width: 90vw;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar-links li a {
+    font-size: 1rem;
+    padding: 8px 6px;
+  }
+  .logout-btn {
+    font-size: 1rem;
+    padding: 10px 12px;
+  }
+  .navbar-logo img {
+    height: 36px;
+  }
+}
