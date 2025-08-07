@@ -39,3 +39,49 @@
     font-size: 1.25rem;
   }
 }
+/* ----------------------- */
+/* Estilos para Home.jsx   */
+/* ----------------------- */
+
+.page-container .lead {
+  font-size: 1.125rem;
+  color: #555;
+  margin-bottom: 2rem;
+}
+
+.laws-section {
+  width: 100%;
+  margin-top: 2rem;
+}
+
+.laws-section h2 {
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+  color: #6a1b9a;
+}
+
+.law-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.law-button {
+  background-color: #7b2cbf;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.law-button:hover {
+  background-color: #9d4edd;
+}
+
+.laws-section .note {
+  font-size: 0.9rem;
+  color: #666;
+}
