@@ -114,7 +114,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
           <ul>
             {resultado.incumplimientos.map((item, index) => (
               <li key={index}>
-                <strong>{item.control}</strong> – {item.recomendacion} ({item.articulo})
+                <strong>{item.control}</strong> – {item.recomendacion} ({item.artic1lo})
               </li>
             ))}
           </ul>
