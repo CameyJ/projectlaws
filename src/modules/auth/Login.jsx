@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import "./Login.css";
-import logo from "../../assets/logo.PNG";
+import logo from "../../assets/logoLOGIN.png";
 import rocketImg from "../../assets/Rocket-PNG-High-Quality-Image.png";
 import { useNavigate } from "react-router-dom";
 

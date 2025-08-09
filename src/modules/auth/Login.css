@@ -23,13 +23,17 @@
   z-index: 2;
 }
 
+
 .login-logo {
-  width: 180px;
-  margin-bottom: 1.5rem;
-  border-radius: 5px;
-  background: #313837;
-  padding: 16px;
+  width: 200px;       
+  height: auto;
+  display: block;
+  background: transparent !important;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
+
 
 h2 {
   color: #a446f8;

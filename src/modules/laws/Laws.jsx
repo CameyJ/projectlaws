@@ -1,6 +1,6 @@
 import Navbar from "../../components/Navbar";
 import "../../modules/laws/Laws.css";
-import evaluacionImg from "../../assets/logo.PNG";
+import evaluacionImg from "../../assets/logoLOGIN.png";
 import { useState } from "react";
 import EvaluacionFormulario from "./EvaluacionFormulario";
 
