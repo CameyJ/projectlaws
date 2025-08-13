@@ -1,150 +1,183 @@
 // backend/routes/adminRegRoutes.js
 const express = require('express');
 const router = express.Router();
-
-const auth = require('../middlewares/auth');              // debe poner req.user
+const auth = require('../middlewares/auth');
 const requireAdmin = require('../middlewares/requireAdmin');
-const db = require('../config/db');                       // pool PG
+const db = require('../config/db');
 
-// Helper para queries
 const qExec = (text, params) => db.query(text, params);
 
-/**
- * GET /api/admin/health  (opcional, útil para probar protección admin)
- */
-router.get('/health', auth, requireAdmin, (req, res) => {
-  res.json({ ok: true, user: req.user, at: new Date().toISOString() });
-});
+/* ===========================================
+ * Normalizadores de payload (ES -> EN)
+ * =========================================== */
+function normRegBody(body) {
+  // Soporta: {codigo, nombre} (ES) o {code, name} (EN)
+  return {
+    code: body.code ?? body.codigo,
+    name: body.name ?? body.nombre,
+    version: body.version ?? null,
+    source_url: body.source_url ?? null,
+  };
+}
 
-/**
- * GET /api/admin/regulaciones
- * Lista regulaciones (en español)
- */
-router.get('/regulaciones', auth, requireAdmin, async (_req, res) => {
+function normArticleBody(body) {
+  return {
+    regulation_id: body.regulation_id ?? body.regulacion_id,
+    code: body.code ?? body.codigo ?? null,
+    title: body.title ?? body.titulo ?? null,
+    body: body.body ?? body.cuerpo,
+    sort_index: body.sort_index ?? body.orden ?? null,
+  };
+}
+
+function normControlBody(body) {
+  return {
+    regulation_id: body.regulation_id ?? body.regulacion_id,
+    article_id: body.article_id ?? body.articulo_id,
+    clave: body.clave ?? null,
+    pregunta: body.pregunta, // required
+    recomendacion: body.recomendacion ?? null,
+    peso: body.peso != null ? Number(body.peso) : 1,
+  };
+}
+
+/* ===========================================
+ * HANDLERS
+ * =========================================== */
+async function listRegulations(req, res) {
   try {
     const q = `
-      SELECT id, codigo, nombre, version, source_url, activo, creado_en
-        FROM public.regulaciones
-       ORDER BY creado_en DESC;
+      SELECT id, code, name, version, source_url, is_active, created_at
+      FROM public.regulations
+      ORDER BY code ASC
     `;
     const { rows } = await qExec(q);
-    return res.json(rows);
+    res.json(rows);
   } catch (e) {
-    console.error('GET /regulaciones', e);
-    return res.status(500).json({ error: 'Error listando regulaciones' });
+    console.error('GET /api/admin/regulations', e);
+    res.status(500).json({ error: 'Error listando regulaciones' });
   }
-});
+}
 
-/**
- * POST /api/admin/regulaciones
- * Crea una regulación
- * Body: { codigo, nombre, version?, source_url? }
- */
-router.post('/regulaciones', auth, requireAdmin, async (req, res) => {
+async function createRegulation(req, res) {
   try {
-    const { codigo, nombre, version, source_url } = req.body;
-    if (!codigo || !nombre) {
-      return res.status(400).json({ error: 'codigo y nombre son requeridos' });
+    const { code, name, version, source_url } = normRegBody(req.body);
+    if (!code || !name) {
+      return res.status(400).json({ error: 'code/nombre y name/nombre son requeridos' });
     }
 
     const q = `
-      INSERT INTO public.regulaciones
-        (id, codigo, nombre, version, source_url, activo, creado_en)
-      VALUES (uuid_generate_v4(), $1, $2, $3, $4, TRUE, NOW())
-      RETURNING id, codigo, nombre, version, source_url, activo, creado_en;
+      INSERT INTO public.regulations
+        (id, code, name, version, source_url, is_active, created_at)
+      VALUES (uuid_generate_v4(), $1, $2, $3, $4, true, now())
+      RETURNING *
     `;
-    const { rows } = await qExec(q, [codigo, nombre, version || null, source_url || null]);
-    return res.json(rows[0]);
+    const { rows } = await qExec(q, [code, name, version, source_url]);
+    res.json(rows[0]);
   } catch (e) {
-    console.error('POST /regulaciones', e);
-    return res.status(500).json({ error: 'Error creando regulación' });
+    console.error('POST /api/admin/regulations', e);
+    res.status(500).json({ error: 'Error creando regulación' });
   }
-});
+}
 
-/**
- * GET /api/admin/regulaciones/:id/articulos
- * Lista artículos por regulación
- */
-router.get('/regulaciones/:id/articulos', auth, requireAdmin, async (req, res) => {
+async function listArticlesByReg(req, res) {
   try {
-    const { id } = req.params;
+    const { id } = req.params; // regulation_id
     const q = `
-      SELECT id, regulacion_id, codigo, titulo, cuerpo, indice_orden, creado_en
-        FROM public.articulos
-       WHERE regulacion_id = $1
-       ORDER BY indice_orden NULLS LAST, creado_en ASC;
+      SELECT id, regulation_id, code, title, body, sort_index, created_at
+      FROM public.articles
+      WHERE regulation_id = $1
+      ORDER BY sort_index NULLS LAST, created_at ASC
     `;
     const { rows } = await qExec(q, [id]);
-    return res.json(rows);
+    res.json(rows);
   } catch (e) {
-    console.error('GET /regulaciones/:id/articulos', e);
-    return res.status(500).json({ error: 'Error listando artículos' });
+    console.error('GET /api/admin/regulations/:id/articles', e);
+    res.status(500).json({ error: 'Error listando artículos' });
   }
-});
+}
 
-/**
- * POST /api/admin/articulos
- * Crea artículo manual
- * Body: { regulacion_id, codigo?, titulo?, cuerpo, indice_orden? }
- */
-router.post('/articulos', auth, requireAdmin, async (req, res) => {
+async function createArticle(req, res) {
   try {
-    const { regulacion_id, codigo, titulo, cuerpo, indice_orden } = req.body;
-    if (!regulacion_id || !cuerpo) {
-      return res.status(400).json({ error: 'regulacion_id y cuerpo son requeridos' });
+    const { regulation_id, code, title, body, sort_index } = normArticleBody(req.body);
+    if (!regulation_id || !body) {
+      return res.status(400).json({ error: 'regulation_id/regulacion_id y body/cuerpo son requeridos' });
     }
 
     const q = `
-      INSERT INTO public.articulos
-        (id, regulacion_id, codigo, titulo, cuerpo, indice_orden, creado_en)
-      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, NOW())
-      RETURNING id, regulacion_id, codigo, titulo, cuerpo, indice_orden, creado_en;
+      INSERT INTO public.articles
+        (id, regulation_id, code, title, body, sort_index, created_at)
+      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, now())
+      RETURNING *
     `;
     const { rows } = await qExec(q, [
-      regulacion_id,
-      codigo || null,
-      titulo || null,
-      cuerpo,
-      Number.isInteger(indice_orden) ? indice_orden : null
+      regulation_id,
+      code,
+      title,
+      body,
+      Number.isInteger(sort_index) ? sort_index : null,
     ]);
-    return res.json(rows[0]);
+    res.json(rows[0]);
   } catch (e) {
-    console.error('POST /articulos', e);
-    return res.status(500).json({ error: 'Error creando artículo' });
+    console.error('POST /api/admin/articles', e);
+    res.status(500).json({ error: 'Error creando artículo' });
   }
-});
+}
 
-/**
- * POST /api/admin/controles
- * Crea control vinculado a un artículo
- * Body: { regulacion_id, articulo_id, clave?, pregunta, recomendacion?, peso? }
- */
-router.post('/controles', auth, requireAdmin, async (req, res) => {
+async function createControl(req, res) {
   try {
-    const { regulacion_id, articulo_id, clave, pregunta, recomendacion, peso } = req.body;
-    if (!regulacion_id || !articulo_id || !pregunta) {
-      return res.status(400).json({ error: 'regulacion_id, articulo_id y pregunta son requeridos' });
+    const { regulation_id, article_id, clave, pregunta, recomendacion, peso } =
+      normControlBody(req.body);
+
+    if (!regulation_id || !article_id || !pregunta) {
+      return res
+        .status(400)
+        .json({ error: 'regulation_id/regulacion_id, article_id/articulo_id y pregunta son requeridos' });
     }
 
     const q = `
-      INSERT INTO public.controles
-        (id, regulacion_id, articulo_id, clave, pregunta, recomendacion, peso, activo)
-      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, COALESCE($6, 1), TRUE)
-      RETURNING id, regulacion_id, articulo_id, clave, pregunta, recomendacion, peso, activo;
+      INSERT INTO public.controls
+        (id, regulation_id, article_id, clave, pregunta, recomendacion, peso, is_active)
+      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, COALESCE($6, 1), true)
+      RETURNING *
     `;
     const { rows } = await qExec(q, [
-      regulacion_id,
-      articulo_id,
-      clave || null,
+      regulation_id,
+      article_id,
+      clave,
       pregunta,
-      recomendacion || null,
-      (typeof peso === 'number' ? peso : 1)
+      recomendacion,
+      Number.isFinite(peso) ? peso : 1,
     ]);
-    return res.json(rows[0]);
+    res.json(rows[0]);
   } catch (e) {
-    console.error('POST /controles', e);
-    return res.status(500).json({ error: 'Error creando control' });
+    console.error('POST /api/admin/controls', e);
+    res.status(500).json({ error: 'Error creando control' });
   }
-});
+}
+
+/* ===========================================
+ * RUTAS (ES y EN apuntando a los mismos handlers)
+ * =========================================== */
+
+// Listar regulaciones
+router.get('/regulaciones', auth, requireAdmin, listRegulations);
+router.get('/regulations', auth, requireAdmin, listRegulations);
+
+// Crear regulación
+router.post('/regulaciones', auth, requireAdmin, createRegulation);
+router.post('/regulations', auth, requireAdmin, createRegulation);
+
+// Listar artículos por regulación
+router.get('/regulaciones/:id/articulos', auth, requireAdmin, listArticlesByReg);
+router.get('/regulations/:id/articles', auth, requireAdmin, listArticlesByReg);
+
+// Crear artículo
+router.post('/articulos', auth, requireAdmin, createArticle);
+router.post('/articles', auth, requireAdmin, createArticle);
+
+// Crear control
+router.post('/controles', auth, requireAdmin, createControl);
+router.post('/controls', auth, requireAdmin, createControl);
 
 module.exports = router;
