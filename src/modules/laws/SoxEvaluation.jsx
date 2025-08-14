@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import Navbar from "../../components/Navbar";
 import "../../modules/laws/Laws.css";
+import { authHeader } from "../../utils/authHeader";
 
 const SoxEvaluation = () => {
   const [controles, setControles] = useState([]);
@@ -9,7 +9,7 @@ const SoxEvaluation = () => {
 
   // Llama a la API para obtener controles SOX
   useEffect(() => {
-    fetch("http://localhost:4000/api/controles/SOX")
+    fetch("http://localhost:4000/api/controles/SOX", { headers: { ...authHeader() }})
       .then((res) => res.json())
       .then((data) => {
         setControles(data);
@@ -41,7 +41,7 @@ const SoxEvaluation = () => {
 
   return (
     <>
-      <Navbar />
+
       <div className="page-container">
         <h2 style={{ color: "#7b2cbf" }}>Evaluación: <strong>SOX</strong></h2>
 

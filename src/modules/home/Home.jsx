@@ -1,12 +1,12 @@
 // src/modules/home/Home.jsx
 import { Link } from "react-router-dom";
-import Navbar from "../../components/Navbar";
+
 import "../../styles/PageLayout.css";
 
 export default function Home() {
   return (
     <>
-      <Navbar />
+
 
       {/* Hero */}
       <section className="home-hero">

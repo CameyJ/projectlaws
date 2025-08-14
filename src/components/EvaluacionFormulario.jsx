@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { authHeader } from "../../utils/authHeader";
 
 function EvaluacionFormulario({ normativaSeleccionada }) {
   const [controles, setControles] = useState([]);
@@ -8,7 +9,9 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
   // Cargar controles al seleccionar normativa
   useEffect(() => {
     if (normativaSeleccionada) {
-      fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`)
+       fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`, {
+       headers: { ...authHeader() }
+       })
         .then((res) => res.json())
         .then((data) => {
           setControles(data);
@@ -36,7 +39,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
     const res = await fetch('http://localhost:4000/api/evaluar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
 

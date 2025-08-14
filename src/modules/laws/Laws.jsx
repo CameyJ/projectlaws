@@ -1,4 +1,4 @@
-import Navbar from "../../components/Navbar";
+
 import "../../modules/laws/Laws.css";
 import evaluacionImg from "../../assets/logoLOGIN.png";
 import { useState } from "react";
@@ -9,7 +9,7 @@ const Laws = () => {
 
   return (
     <>
-      <Navbar />
+
       <div className="page-container evaluation-container">
         <div className="evaluation-header">
           <img src={evaluacionImg} alt="Evaluación" className="evaluation-img" />

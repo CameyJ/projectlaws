@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { authHeader } from "../../utils/authHeader";
 
 function EvaluacionFormulario({ normativaSeleccionada }) {
   const [controles, setControles] = useState([]);
@@ -14,7 +15,9 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
     setRespuestas({});
     setResultado(null);
 
-    fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`)
+    fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`, {
+     headers: { ...authHeader() }
+     })
       .then((res) => res.json())
       .then((data) => {
         setControles(data);
@@ -33,7 +36,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
     const payload = { empresa: 'Farmacia Vida', normativa: normativaSeleccionada, respuestas };
     const res = await fetch('http://localhost:4000/api/evaluar', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
     const data = await res.json();
