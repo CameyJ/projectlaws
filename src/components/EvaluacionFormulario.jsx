@@ -1,130 +1,110 @@
-import { useEffect, useState } from 'react';
-import { authHeader } from "../../utils/authHeader";
+import { useEffect, useState } from "react";
+import { API, authHeaders } from "../../api";
 
-function EvaluacionFormulario({ normativaSeleccionada }) {
+export default function EvaluacionFormulario({ normativaSeleccionada }) {
   const [controles, setControles] = useState([]);
   const [respuestas, setRespuestas] = useState({});
   const [resultado, setResultado] = useState(null);
 
-  // Cargar controles al seleccionar normativa
   useEffect(() => {
-    if (normativaSeleccionada) {
-       fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`, {
-       headers: { ...authHeader() }
-       })
-        .then((res) => res.json())
-        .then((data) => {
-          setControles(data);
-          const estadoInicial = {};
-          data.forEach((control) => {
-            estadoInicial[control.clave] = '';
-          });
-          setRespuestas(estadoInicial);
-        });
-    }
+    if (!normativaSeleccionada) return;
+    setControles([]); setRespuestas({}); setResultado(null);
+
+    fetch(`${API}/api/controles/${normativaSeleccionada}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(data => {
+        setControles(data);
+        const init = {};
+        data.forEach(c => init[c.id || c.clave || c.pregunta] = "");
+        setRespuestas(init);
+      })
+      .catch(console.error);
   }, [normativaSeleccionada]);
 
-  const handleRespuesta = (clave, valor) => {
-    setRespuestas((prev) => ({ ...prev, [clave]: valor }));
-  };
+  const handleRespuesta = (clave, valor) =>
+    setRespuestas(prev => ({ ...prev, [clave]: valor }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const payload = {
-      empresa: 'Farmacia Vida',
+      empresa: "Farmacia Vida",
       normativa: normativaSeleccionada,
       respuestas,
     };
-
-    const res = await fetch('http://localhost:4000/api/evaluar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
+    const res = await fetch(`${API}/api/evaluar`, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type":"application/json" }),
       body: JSON.stringify(payload),
     });
-
     const data = await res.json();
     setResultado(data);
   };
 
   return (
-    <div>
-      <h2>Evaluación: {normativaSeleccionada}</h2>
+    <div className="eval-layout">
+      <div className="eval-form">
+        <h2>Evaluación: {normativaSeleccionada}</h2>
 
-      <form onSubmit={handleSubmit}>
-        {controles.map((control) => (
-          <div key={control.clave} style={{ marginBottom: '20px' }}>
-            <p><strong>{control.pregunta}</strong></p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                onClick={() => handleRespuesta(control.clave, 'true')}
-                style={{
-                  backgroundColor: respuestas[control.clave] === 'true' ? '#4CAF50' : '#e0e0e0',
-                  color: respuestas[control.clave] === 'true' ? 'white' : 'black',
-                  padding: '8px 12px',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                ✔️ Sí
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRespuesta(control.clave, 'partial')}
-                style={{
-                  backgroundColor: respuestas[control.clave] === 'partial' ? '#FFC107' : '#e0e0e0',
-                  color: respuestas[control.clave] === 'partial' ? 'white' : 'black',
-                  padding: '8px 12px',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                ⚠️ Parcial
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRespuesta(control.clave, 'false')}
-                style={{
-                  backgroundColor: respuestas[control.clave] === 'false' ? '#F44336' : '#e0e0e0',
-                  color: respuestas[control.clave] === 'false' ? 'white' : 'black',
-                  padding: '8px 12px',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                ❌ No
-              </button>
-            </div>
-          </div>
-        ))}
+        <form onSubmit={handleSubmit}>
+          {controles.map((c, idx) => {
+            const key = c.id || c.clave || `c_${idx}`;
+            return (
+              <div key={key} className="q-card">
+                <div className="eval-title">
+                  <h2>{c.pregunta || c.question}</h2>
+                </div>
 
-        <button type="submit" style={{ marginTop: '20px', padding: '10px 15px' }}>
-          Evaluar Cumplimiento
-        </button>
-      </form>
+                {/* opcional: muestra referencia de artículo */}
+                {(c.articulo_codigo || c.articulo_titulo) && (
+                  <div className="eval-intro" style={{marginBottom:8}}>
+                    <small>
+                      {c.articulo_codigo ? <strong>{c.articulo_codigo}</strong> : null}
+                      {c.articulo_titulo ? <> — {c.articulo_titulo}</> : null}
+                    </small>
+                  </div>
+                )}
 
+                <div className="eval-questions">
+                  <button type="button"
+                    onClick={()=>handleRespuesta(key, "true")}
+                    className={respuestas[key]==="true"?"btn-yes active":"btn-yes"}>✔ Sí</button>
+                  <button type="button"
+                    onClick={()=>handleRespuesta(key, "partial")}
+                    className={respuestas[key]==="partial"?"btn-partial active":"btn-partial"}>⚠ Parcial</button>
+                  <button type="button"
+                    onClick={()=>handleRespuesta(key, "false")}
+                    className={respuestas[key]==="false"?"btn-no active":"btn-no"}>✖ No</button>
+                </div>
+              </div>
+            );
+          })}
+
+          {!!controles.length && (
+            <button type="submit" className="btn-primary" style={{marginTop:16}}>
+              Evaluar Cumplimiento
+            </button>
+          )}
+        </form>
+      </div>
+
+      {/* panel de resultado (tal como ya lo tenías) */}
       {resultado && (
-        <div style={{ marginTop: '2rem' }}>
+        <div className="g-card" style={{marginLeft:24, minWidth:360}}>
           <h3>Resultado</h3>
           <p><strong>Cumplimiento:</strong> {resultado.cumplimiento}%</p>
           <p><strong>Nivel:</strong> {resultado.nivel}</p>
-
-          <h4>Controles no cumplidos:</h4>
-          <ul>
-            {resultado.incumplimientos.map((item, index) => (
-              <li key={index}>
-                <strong>{item.control}</strong> – {item.recomendacion} ({item.articulo})
-              </li>
-            ))}
-          </ul>
+          {!!resultado.incumplimientos?.length && (
+            <>
+              <h4>Controles no cumplidos</h4>
+              <ul>
+                {resultado.incumplimientos.map((i, k)=>(
+                  <li key={k}><strong>{i.control}</strong> — {i.recomendacion} <em>({i.articulo})</em></li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
-
-export default EvaluacionFormulario;

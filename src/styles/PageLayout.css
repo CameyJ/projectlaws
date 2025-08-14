@@ -218,3 +218,11 @@
 .law__text{ color:var(--muted); margin-bottom:.9rem; }
 
 .law__actions{ display:flex; gap:.6rem; flex-wrap:wrap; }
+
+
+.g-card{ background:#fff; border:1px solid #eaeaea; border-radius:12px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.03);}
+.btn-primary{ background:#7b2cbf; color:#fff; border:none; border-radius:8px; cursor:pointer;}
+.btn-primary:hover{ filter:brightness(1.05);}
+.row{ display:flex; flex-direction:column; gap:.4rem; margin:.5rem 0;}
+.row input{ padding:.6rem .75rem; border:1px solid #dcdcdc; border-radius:8px;}
+.g-table th, .g-table td{ font-size:.95rem; }

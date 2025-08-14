@@ -9,19 +9,21 @@ import PrivateRoute from "./components/PrivateRoute";
 import AdminRoute from "./components/AdminRoute";
 import AuthenticatedLayout from "./components/AuthenticatedLayout";
 
-// ⚠️ Asegúrate que EXISTE este archivo con este nombre EXACTO (singular):
+// Admin
 import AdminDashboard from "./modules/admin/AdminDashboard";
 import ControlesAdmin from "./modules/admin/ControlesAdmin";
 import RegulacionesAdmin from "./modules/admin/RegulacionesAdmin";
+import AdminArticles from "./modules/admin/AdminArticles";          // ⬅️ nuevo
+import AdminControlBuilder from "./modules/admin/AdminControlBuilder"; // ⬅️ nuevo
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Pública (sin navbar) */}
+        {/* Pública */}
         <Route path="/login" element={<Login />} />
 
-        {/* Privadas (con navbar mediante AuthenticatedLayout) */}
+        {/* Privadas (con navbar) */}
         <Route element={<PrivateRoute />}>
           <Route element={<AuthenticatedLayout />}>
             <Route path="/home" element={<Home />} />
@@ -31,13 +33,17 @@ export default function App() {
             {/* Solo Admin */}
             <Route element={<AdminRoute />}>
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/controles" element={<ControlesAdmin />} />
               <Route path="/admin/regulaciones" element={<RegulacionesAdmin />} />
+              <Route path="/admin/controles" element={<ControlesAdmin />} />
+              <Route path="/admin/articulos" element={<AdminArticles />} />
+              <Route path="/admin/controles/nuevo" element={<AdminControlBuilder />} />
+              {/* opcional: artículos filtrados por regulación */}
+              <Route path="/admin/regulaciones/:id/articulos" element={<AdminArticles />} />
             </Route>
           </Route>
         </Route>
 
-        {/* Raíz -> login; cualquier otra ruta desconocida -> login */}
+        {/* Redirecciones */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
