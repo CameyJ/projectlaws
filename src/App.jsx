@@ -13,8 +13,9 @@ import AuthenticatedLayout from "./components/AuthenticatedLayout";
 import AdminDashboard from "./modules/admin/AdminDashboard";
 import ControlesAdmin from "./modules/admin/ControlesAdmin";
 import RegulacionesAdmin from "./modules/admin/RegulacionesAdmin";
-import AdminArticles from "./modules/admin/AdminArticles";          // ⬅️ nuevo
-import AdminControlBuilder from "./modules/admin/AdminControlBuilder"; // ⬅️ nuevo
+import AdminArticles from "./modules/admin/AdminArticles";
+import AdminControlBuilder from "./modules/admin/AdminControlBuilder";
+import AdminPdfImporter from "./modules/admin/AdminPdfImporter"; // ⬅️ importador PDF
 
 export default function App() {
   return (
@@ -37,8 +38,8 @@ export default function App() {
               <Route path="/admin/controles" element={<ControlesAdmin />} />
               <Route path="/admin/articulos" element={<AdminArticles />} />
               <Route path="/admin/controles/nuevo" element={<AdminControlBuilder />} />
-              {/* opcional: artículos filtrados por regulación */}
               <Route path="/admin/regulaciones/:id/articulos" element={<AdminArticles />} />
+              <Route path="/admin/importar" element={<AdminPdfImporter />} />  {/* ⬅️ NUEVA RUTA */}
             </Route>
           </Route>
         </Route>

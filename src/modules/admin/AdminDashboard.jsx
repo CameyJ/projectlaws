@@ -1,8 +1,17 @@
-export default function AdminDashboard() {
+import { Link } from "react-router-dom";
+
+export default function Navbar() {
   return (
-    <div className="page-container">
-      <h1>Panel de Administración</h1>
-      <p>Solo visible para usuarios con rol <strong>ADMIN</strong>.</p>
-    </div>
+    <nav>
+      <Link to="/home">Inicio</Link>
+      <Link to="/laws">Evaluación</Link>
+      <Link to="/results">Resultados</Link>
+
+      {/* Sección Admin */}
+      <Link to="/admin">Admin</Link>
+      <Link to="/admin/regulaciones">Regulaciones</Link>
+      <Link to="/admin/controles">Controles</Link>
+      <Link to="/admin/importar">Importar PDF</Link> {/* ⬅️ Nuevo enlace */}
+    </nav>
   );
 }

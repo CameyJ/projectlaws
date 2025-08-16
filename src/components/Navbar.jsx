@@ -6,25 +6,24 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // 1) NO mostrar en /login
+  // 1) Ocultar navbar en /login
   if (pathname.startsWith("/login")) return null;
 
-  // 2) Leer token/user de forma segura (sin romper si no existen)
+  // 2) Leer token y user de forma segura
   const token = useMemo(() => {
     try { return localStorage.getItem("token"); } catch { return null; }
   }, []);
 
-  let user = useMemo(() => {
+  const user = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
   }, []);
 
-  // 3) Si no hay token, no muestres el navbar (evita “menú en login”)
+  // 3) Si no hay token, no mostrar navbar
   if (!token) return null;
 
-  const isAdmin = !!user && (
-    String(user?.rol || "").toUpperCase() === "ADMIN" ||
-    Number(user?.role_id) === 1
-  );
+  const isAdmin =
+    !!user &&
+    (String(user?.rol || "").toUpperCase() === "ADMIN" || Number(user?.role_id) === 1);
 
   const onLogout = () => {
     try {
@@ -34,28 +33,75 @@ export default function Navbar() {
     navigate("/login", { replace: true });
   };
 
+  const linkStyle = ({ isActive }) => ({
+    color: isActive ? "#fff" : "#c7b6ff",
+    textDecoration: "none",
+    fontWeight: 500,
+    padding: "4px 6px",
+    borderRadius: 6,
+    background: isActive ? "rgba(255,255,255,.1)" : "transparent",
+  });
+
+  const adminLinkStyle = ({ isActive }) => ({
+    color: isActive ? "#1a0833" : "#ffd27a",
+    textDecoration: "none",
+    fontWeight: 600,
+    padding: "4px 6px",
+    borderRadius: 6,
+    background: isActive ? "#ffd27a" : "transparent",
+  });
+
   return (
-    <header style={{ display:"flex", gap:16, padding:"10px 16px", background:"#1a0833", color:"#fff" }}>
+    <header
+      style={{
+        display: "flex",
+        gap: 16,
+        padding: "10px 16px",
+        background: "#1a0833",
+        color: "#fff",
+        alignItems: "center",
+      }}
+    >
       <strong style={{ marginRight: 16 }}>LawComply</strong>
 
-      <nav style={{ display:"flex", gap:12 }}>
-        <NavLink to="/home" style={{ color:"#c7b6ff" }}>Inicio</NavLink>
-        <NavLink to="/laws" style={{ color:"#c7b6ff" }}>Evaluación</NavLink>
-        <NavLink to="/results" style={{ color:"#c7b6ff" }}>Resultados</NavLink>
+      <nav style={{ display: "flex", gap: 12 }}>
+        <NavLink to="/home" style={linkStyle}>Inicio</NavLink>
+        <NavLink to="/laws" style={linkStyle}>Evaluación</NavLink>
+        <NavLink to="/results" style={linkStyle}>Resultados</NavLink>
+
         {isAdmin && (
           <>
-            <NavLink to="/admin" style={{ color:"#ffd27a" }}>Admin</NavLink>
-            <NavLink to="/admin/controles" style={{ color:"#ffd27a" }}>Controles</NavLink>
-            <NavLink to="/admin/regulaciones" style={{ color:"#ffd27a" }}>Regulaciones</NavLink>
+            <NavLink to="/admin" style={adminLinkStyle}>Admin</NavLink>
+            <NavLink to="/admin/regulaciones" style={adminLinkStyle}>Regulaciones</NavLink>
+            <NavLink to="/admin/controles" style={adminLinkStyle}>Controles</NavLink>
+
+            {/* Opcionales: déjalos si te sirven */}
+            <NavLink to="/admin/articulos" style={adminLinkStyle}>Artículos</NavLink>
+            <NavLink to="/admin/controles/nuevo" style={adminLinkStyle}>Nuevo control</NavLink>
+
+            {/* ✅ Nuevo: importador de PDF */}
+            <NavLink to="/admin/importar" style={adminLinkStyle}>Importar PDF</NavLink>
           </>
         )}
       </nav>
 
-      <div style={{ marginLeft:"auto" }}>
-        <span style={{ marginRight: 12 }}>
+      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ opacity: 0.85 }}>
           {user?.nombre || user?.name || user?.email || ""}
         </span>
-        <button onClick={onLogout} style={{ padding:"4px 10px" }}>Logout</button>
+        <button
+          onClick={onLogout}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            border: "none",
+            background: "#ff6b00",
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          Logout
+        </button>
       </div>
     </header>
   );
