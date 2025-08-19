@@ -1,40 +1,113 @@
+// src/modules/laws/EvaluacionFormulario.jsx
 import { useEffect, useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { authHeader } from "../../utils/authHeader";
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 function EvaluacionFormulario({ normativaSeleccionada }) {
   const [controles, setControles] = useState([]);
   const [respuestas, setRespuestas] = useState({});
   const [resultado, setResultado] = useState(null);
+  const [evidencias, setEvidencias] = useState({}); // { [clave]: { filesToSend: File[], uploaded: [{filename,url}], uploading: bool, err?: string } }
   const resultadoRef = useRef();
 
   useEffect(() => {
     if (!normativaSeleccionada) return;
-    setControles([]);
-    setRespuestas({});
-    setResultado(null);
+    (async () => {
+      try {
+        setControles([]);
+        setRespuestas({});
+        setResultado(null);
+        setEvidencias({});
 
-    fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`, {
-     headers: { ...authHeader() }
-     })
-      .then((res) => res.json())
-      .then((data) => {
-        setControles(data);
+        const res = await fetch(`${API}/api/controles/${normativaSeleccionada}`, {
+          headers: { ...authHeader() }
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${txt}`);
+      }
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : [];
+        setControles(arr);
         const inicial = {};
-        data.forEach((c) => (inicial[c.clave] = ''));
+        const ev = {};
+        arr.forEach((c) => {
+          inicial[c.clave] = '';
+          ev[c.clave] = { filesToSend: [], uploaded: [], uploading: false, err: '' };
+        });
         setRespuestas(inicial);
-      })
-      .catch(console.error);
+        setEvidencias(ev);
+      } catch (e) {
+        console.error('Error cargando controles:', e);
+        setControles([]);
+        setRespuestas({});
+      }
+    })();
   }, [normativaSeleccionada]);
 
-  const handleRespuesta = (clave, valor) =>
+  const handleRespuesta = (clave, valor) => {
     setRespuestas((prev) => ({ ...prev, [clave]: valor }));
+  };
+
+  const onPickFiles = (clave, fileList) => {
+    const files = Array.from(fileList || []);
+    setEvidencias((prev) => ({
+      ...prev,
+      [clave]: { ...(prev[clave] || {}), filesToSend: files, err: '' }
+    }));
+  };
+
+  const uploadEvidence = async (clave) => {
+    try {
+      setEvidencias(prev => ({
+        ...prev,
+        [clave]: { ...(prev[clave] || {}), uploading: true, err: '' }
+      }));
+      const item = evidencias[clave] || { filesToSend: [] };
+      if (!item.filesToSend.length) {
+        setEvidencias(prev => ({
+          ...prev,
+          [clave]: { ...(prev[clave] || {}), uploading: false, err: 'Selecciona archivo(s) primero.' }
+        }));
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('normativa', normativaSeleccionada);
+      fd.append('clave', clave);
+      item.filesToSend.forEach(f => fd.append('files', f));
+
+      const res = await fetch(`${API}/api/evidencias`, {
+        method: 'POST',
+        headers: { ...authHeader() }, // NO fijar Content-Type
+        body: fd
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} ${t}`);
+      }
+      const data = await res.json();
+      setEvidencias(prev => ({
+        ...prev,
+        [clave]: { filesToSend: [], uploaded: data.files || [], uploading: false, err: '' }
+      }));
+      alert('Evidencia subida correctamente.');
+    } catch (e) {
+      console.error('uploadEvidence', e);
+      setEvidencias(prev => ({
+        ...prev,
+        [clave]: { ...(prev[clave] || {}), uploading: false, err: 'Error subiendo evidencias.' }
+      }));
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = { empresa: 'Farmacia Vida', normativa: normativaSeleccionada, respuestas };
-    const res = await fetch('http://localhost:4000/api/evaluar', {
+    const res = await fetch(`${API}/api/evaluar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
@@ -50,26 +123,45 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
     return '#c62828';
   };
 
-  // ► Función para descargar PDF (escala a A4)
+  // ► Descargar PDF con encabezado y nombre de ley
   const downloadPdf = () => {
     const input = resultadoRef.current;
+    if (!input) return;
+
     html2canvas(input, { scale: 2 }).then((canvas) => {
       const imgData = canvas.toDataURL('image/png');
-      // PDF A4
       const pdf = new jsPDF('p', 'pt', 'a4');
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Escalar imagen manteniendo proporción
-      const imgProps = pdf.getImageProperties(imgData);
-      const imgWidth = pdfWidth;
-      const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-      const finalHeight = imgHeight > pdfHeight ? pdfHeight : imgHeight;
+      const ley = String(normativaSeleccionada || '').trim();
+      const fecha = new Date().toISOString().slice(0, 10);
 
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, finalHeight);
-      pdf.save(`Evaluacion_${normativaSeleccionada}.pdf`);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text(`Resultado de evaluación — ${ley}`, 40, 40);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.text(`Fecha: ${fecha}`, 40, 58);
+
+      const topMargin = 70;
+      const bottomMargin = 30;
+      const availableHeight = pdfHeight - topMargin - bottomMargin;
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const targetWidth = pdfWidth - 80;
+      let targetHeight = (imgProps.height * targetWidth) / imgProps.width;
+      if (targetHeight > availableHeight) targetHeight = availableHeight;
+
+      pdf.addImage(imgData, 'PNG', 40, topMargin, targetWidth, targetHeight);
+
+      const safe = (s) => s.replace(/[^\w\-]+/g, '_');
+      pdf.save(`Evaluacion_${safe(ley)}_${fecha}.pdf`);
     });
   };
+
+  const showEvidenceBlock = (valor) => valor === 'true' || valor === 'partial';
 
   return (
     <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
@@ -77,40 +169,99 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       <div style={{ flex: 1 }}>
         <h2 style={{ color: '#6a1b9a' }}>Evaluación: {normativaSeleccionada}</h2>
         <form onSubmit={handleSubmit}>
-          {controles.map((control) => (
-            <div key={control.clave} style={{ marginBottom: 20 }}>
-              <p style={{ marginBottom: 8 }}><strong>{control.pregunta}</strong></p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => handleRespuesta(control.clave, 'true')}
-                  style={{
-                    backgroundColor: respuestas[control.clave] === 'true' ? '#4CAF50' : '#e0e0e0',
-                    color: respuestas[control.clave] === 'true' ? 'white' : 'black',
-                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
-                  }}
-                >✔️ Sí</button>
-                <button
-                  type="button"
-                  onClick={() => handleRespuesta(control.clave, 'partial')}
-                  style={{
-                    backgroundColor: respuestas[control.clave] === 'partial' ? '#FFC107' : '#e0e0e0',
-                    color: respuestas[control.clave] === 'partial' ? 'white' : 'black',
-                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
-                  }}
-                >⚠️ Parcial</button>
-                <button
-                  type="button"
-                  onClick={() => handleRespuesta(control.clave, 'false')}
-                  style={{
-                    backgroundColor: respuestas[control.clave] === 'false' ? '#F44336' : '#e0e0e0',
-                    color: respuestas[control.clave] === 'false' ? 'white' : 'black',
-                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
-                  }}
-                >❌ No</button>
+          {controles.map((control) => {
+            const val = respuestas[control.clave] || '';
+            const ev = evidencias[control.clave] || { filesToSend: [], uploaded: [], uploading: false, err: '' };
+            return (
+              <div key={control.clave} style={{ marginBottom: 22 }}>
+                <p style={{ marginBottom: 8 }}><strong>{control.pregunta}</strong></p>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleRespuesta(control.clave, 'true')}
+                    style={{
+                      backgroundColor: val === 'true' ? '#4CAF50' : '#e0e0e0',
+                      color: val === 'true' ? 'white' : 'black',
+                      padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
+                    }}
+                  >✔️ Sí</button>
+                  <button
+                    type="button"
+                    onClick={() => handleRespuesta(control.clave, 'partial')}
+                    style={{
+                      backgroundColor: val === 'partial' ? '#FFC107' : '#e0e0e0',
+                      color: val === 'partial' ? 'white' : 'black',
+                      padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
+                    }}
+                  >⚠️ Parcial</button>
+                  <button
+                    type="button"
+                    onClick={() => handleRespuesta(control.clave, 'false')}
+                    style={{
+                      backgroundColor: val === 'false' ? '#F44336' : '#e0e0e0',
+                      color: val === 'false' ? 'white' : 'black',
+                      padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
+                    }}
+                  >❌ No</button>
+                </div>
+
+                {/* BLOQUE DE EVIDENCIA */}
+                {showEvidenceBlock(val) && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      background: '#f5f8ff',
+                      border: '1px dashed #90caf9',
+                      padding: 12,
+                      borderRadius: 8
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf"
+                        onChange={(e) => onPickFiles(control.clave, e.target.files)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => uploadEvidence(control.clave)}
+                        disabled={ev.uploading || !(ev.filesToSend?.length)}
+                        className="btn-secondary"
+                        style={{ padding: '8px 12px' }}
+                      >
+                        {ev.uploading ? 'Subiendo…' : 'Subir evidencia'}
+                      </button>
+                      {ev.err && <span style={{ color: '#c62828' }}>{ev.err}</span>}
+                    </div>
+
+                    {/* Seleccionados (sin subir) */}
+                    {ev.filesToSend?.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <small><strong>Seleccionados:</strong> {ev.filesToSend.map(f => f.name).join(', ')}</small>
+                      </div>
+                    )}
+
+                    {/* Subidos */}
+                    {ev.uploaded?.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <small><strong>Subidos:</strong>{' '}
+                          {ev.uploaded.map((f, i) => (
+                            <a key={i}
+                               href={`${API}${f.url}`}
+                               target="_blank" rel="noreferrer"
+                               style={{ marginRight: 10 }}>
+                              {f.filename}
+                            </a>
+                          ))}
+                        </small>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <button
             type="submit"
@@ -130,7 +281,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         </form>
       </div>
 
-      {/* RESULTADO (capturado por el ref) */}
+      {/* RESULTADO */}
       {resultado && (
         <>
           <div
@@ -158,13 +309,13 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
               </span>
             </p>
 
-            {resultado.incumplimientos.length > 0 && (
+            {Array.isArray(resultado.incumplimientos) && resultado.incumplimientos.length > 0 && (
               <>
                 <h4 style={{ marginTop: 16 }}>Controles no cumplidos:</h4>
                 <ul style={{ paddingLeft: '1.2rem' }}>
                   {resultado.incumplimientos.map((item, i) => (
                     <li key={i} style={{ marginBottom: 6 }}>
-                      <strong>{item.control}</strong> — {item.recomendacion} <em>({item.articulo})</em>
+                      <strong>{item.control}</strong> — {item.recomendacion} {item.articulo ? <em>({item.articulo})</em> : null}
                     </li>
                   ))}
                 </ul>
@@ -172,7 +323,6 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
             )}
           </div>
 
-          {/* Botón DESCARGAR PDF, FUERA del ref */}
           <button
             onClick={downloadPdf}
             style={{

@@ -17,6 +17,9 @@ const evaRoutes  = require('./routes/evaRoutes');
 const adminRegRoutes    = require('./routes/adminRegRoutes');     // CRUD regs/artículos/controles
 const adminUploadRoutes = require('./routes/adminUploadRoutes');  // Upload + parse PDF
 
+// 🔹 NUEVO: router para evidencias (subida de archivos)
+const evidenceRoutes = require('./routes/evidenceRoutes');
+
 const app = express();
 
 // --- Seguridad (Helmet) ---
@@ -45,8 +48,6 @@ const corsCfg = {
   credentials: true,
 };
 app.use(cors(corsCfg));
-// 👇 importante para preflight de navegadores
-
 
 // --- Parsers ---
 app.use(express.json({ limit: '10mb' }));
@@ -61,16 +62,16 @@ app.use('/api/auth', authRoutes);
 // --- Rutas privadas (evaluación) ---
 app.use('/api', auth, evaRoutes);
 
-// --- Archivos subidos (solo dev/local) ---
+// 🔹 NUEVO: evidencias (requiere estar logueado)
+app.use('/api', auth, evidenceRoutes);
+
+// --- Archivos subidos (dev/local) ---
 if (process.env.NODE_ENV !== 'production') {
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 }
 
 // --- Rutas admin ---
 // Nota: cada router ya valida auth + rol admin internamente.
-// Si prefieres centralizar, podrías usar:
-// app.use('/api/admin', auth, requireAdmin, adminRegRoutes);
-// app.use('/api/admin', auth, requireAdmin, adminUploadRoutes);
 app.use('/api/admin', adminRegRoutes);
 app.use('/api/admin', adminUploadRoutes);
 

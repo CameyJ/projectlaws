@@ -1,110 +1,224 @@
-import { useEffect, useState } from "react";
-import { API, authHeaders } from "../../api";
+// src/components/EvaluacionFormulario.jsx
+import { useEffect, useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import { authHeader } from "../../utils/authHeader";
 
-export default function EvaluacionFormulario({ normativaSeleccionada }) {
+function EvaluacionFormulario({ normativaSeleccionada }) {
   const [controles, setControles] = useState([]);
   const [respuestas, setRespuestas] = useState({});
   const [resultado, setResultado] = useState(null);
+  const resultadoRef = useRef();
 
   useEffect(() => {
     if (!normativaSeleccionada) return;
-    setControles([]); setRespuestas({}); setResultado(null);
+    (async () => {
+      try {
+        setControles([]);
+        setRespuestas({});
+        setResultado(null);
 
-    fetch(`${API}/api/controles/${normativaSeleccionada}`, { headers: authHeaders() })
-      .then(r => r.json())
-      .then(data => {
-        setControles(data);
-        const init = {};
-        data.forEach(c => init[c.id || c.clave || c.pregunta] = "");
-        setRespuestas(init);
-      })
-      .catch(console.error);
+        const res = await fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`, {
+          headers: { ...authHeader() }
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status} ${txt}`);
+        }
+        const data = await res.json();
+        const arr = Array.isArray(data) ? data : [];
+        setControles(arr);
+        const inicial = {};
+        arr.forEach((c) => (inicial[c.clave] = ''));
+        setRespuestas(inicial);
+      } catch (e) {
+        console.error('Error cargando controles:', e);
+        setControles([]);
+        setRespuestas({});
+      }
+    })();
   }, [normativaSeleccionada]);
 
   const handleRespuesta = (clave, valor) =>
-    setRespuestas(prev => ({ ...prev, [clave]: valor }));
+    setRespuestas((prev) => ({ ...prev, [clave]: valor }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = {
-      empresa: "Farmacia Vida",
-      normativa: normativaSeleccionada,
-      respuestas,
-    };
-    const res = await fetch(`${API}/api/evaluar`, {
-      method: "POST",
-      headers: authHeaders({ "Content-Type":"application/json" }),
+    const payload = { empresa: 'Farmacia Vida', normativa: normativaSeleccionada, respuestas };
+    const res = await fetch('http://localhost:4000/api/evaluar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
     const data = await res.json();
     setResultado(data);
   };
 
+  const colorNivel = (pct) => {
+    if (pct >= 80) return '#2e7d32';
+    if (pct >= 60) return '#f9a825';
+    if (pct >= 40) return '#ef6c00';
+    return '#c62828';
+  };
+
+  // ---- Descargar PDF con encabezado de la ley ----
+  const downloadPdf = () => {
+    const input = resultadoRef.current;
+    if (!input) return;
+
+    html2canvas(input, { scale: 2 }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      // Encabezado
+      const ley = String(normativaSeleccionada || '').trim();
+      const fecha = new Date().toISOString().slice(0,10);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(16);
+      pdf.text(`Resultado de evaluación — ${ley}`, 40, 40);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.text(`Fecha: ${fecha}`, 40, 58);
+
+      // Área disponible bajo el encabezado
+      const topMargin = 70; // espacio para el header
+      const availableHeight = pdfHeight - topMargin - 30; // margen inferior
+
+      // Calcular tamaño imagen manteniendo proporción
+      const imgProps = pdf.getImageProperties(imgData);
+      const targetWidth = pdfWidth - 40 * 2; // márgenes laterales 40
+      let targetHeight = (imgProps.height * targetWidth) / imgProps.width;
+
+      // Si la imagen excede el alto disponible, la ajustamos
+      if (targetHeight > availableHeight) {
+        targetHeight = availableHeight;
+      }
+
+      pdf.addImage(imgData, 'PNG', 40, topMargin, targetWidth, targetHeight);
+
+      // Nombre de archivo
+      const safe = (s) => s.replace(/[^\w\-]+/g, '_');
+      pdf.save(`Evaluacion_${safe(ley)}_${fecha}.pdf`);
+    });
+  };
+
   return (
-    <div className="eval-layout">
-      <div className="eval-form">
-        <h2>Evaluación: {normativaSeleccionada}</h2>
-
+    <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+      <div style={{ flex: 1 }}>
+        <h2 style={{ color: '#6a1b9a' }}>Evaluación: {normativaSeleccionada}</h2>
         <form onSubmit={handleSubmit}>
-          {controles.map((c, idx) => {
-            const key = c.id || c.clave || `c_${idx}`;
-            return (
-              <div key={key} className="q-card">
-                <div className="eval-title">
-                  <h2>{c.pregunta || c.question}</h2>
-                </div>
-
-                {/* opcional: muestra referencia de artículo */}
-                {(c.articulo_codigo || c.articulo_titulo) && (
-                  <div className="eval-intro" style={{marginBottom:8}}>
-                    <small>
-                      {c.articulo_codigo ? <strong>{c.articulo_codigo}</strong> : null}
-                      {c.articulo_titulo ? <> — {c.articulo_titulo}</> : null}
-                    </small>
-                  </div>
-                )}
-
-                <div className="eval-questions">
-                  <button type="button"
-                    onClick={()=>handleRespuesta(key, "true")}
-                    className={respuestas[key]==="true"?"btn-yes active":"btn-yes"}>✔ Sí</button>
-                  <button type="button"
-                    onClick={()=>handleRespuesta(key, "partial")}
-                    className={respuestas[key]==="partial"?"btn-partial active":"btn-partial"}>⚠ Parcial</button>
-                  <button type="button"
-                    onClick={()=>handleRespuesta(key, "false")}
-                    className={respuestas[key]==="false"?"btn-no active":"btn-no"}>✖ No</button>
-                </div>
+          {controles.map((control) => (
+            <div key={control.clave} style={{ marginBottom: 20 }}>
+              <p style={{ marginBottom: 8 }}><strong>{control.pregunta}</strong></p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button"
+                  onClick={() => handleRespuesta(control.clave, 'true')}
+                  style={{
+                    backgroundColor: respuestas[control.clave] === 'true' ? '#4CAF50' : '#e0e0e0',
+                    color: respuestas[control.clave] === 'true' ? 'white' : 'black',
+                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
+                  }}
+                >✔️ Sí</button>
+                <button type="button"
+                  onClick={() => handleRespuesta(control.clave, 'partial')}
+                  style={{
+                    backgroundColor: respuestas[control.clave] === 'partial' ? '#FFC107' : '#e0e0e0',
+                    color: respuestas[control.clave] === 'partial' ? 'white' : 'black',
+                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
+                  }}
+                >⚠️ Parcial</button>
+                <button type="button"
+                  onClick={() => handleRespuesta(control.clave, 'false')}
+                  style={{
+                    backgroundColor: respuestas[control.clave] === 'false' ? '#F44336' : '#e0e0e0',
+                    color: respuestas[control.clave] === 'false' ? 'white' : 'black',
+                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
+                  }}
+                >❌ No</button>
               </div>
-            );
-          })}
+            </div>
+          ))}
 
-          {!!controles.length && (
-            <button type="submit" className="btn-primary" style={{marginTop:16}}>
-              Evaluar Cumplimiento
-            </button>
-          )}
+          <button
+            type="submit"
+            style={{
+              marginTop: 20,
+              backgroundColor: '#ff6b00',
+              color: 'white',
+              padding: '12px 20px',
+              border: 'none',
+              borderRadius: 8,
+              fontSize: '1rem',
+              cursor: 'pointer',
+            }}
+          >
+            Evaluar Cumplimiento
+          </button>
         </form>
       </div>
 
-      {/* panel de resultado (tal como ya lo tenías) */}
       {resultado && (
-        <div className="g-card" style={{marginLeft:24, minWidth:360}}>
-          <h3>Resultado</h3>
-          <p><strong>Cumplimiento:</strong> {resultado.cumplimiento}%</p>
-          <p><strong>Nivel:</strong> {resultado.nivel}</p>
-          {!!resultado.incumplimientos?.length && (
-            <>
-              <h4>Controles no cumplidos</h4>
-              <ul>
-                {resultado.incumplimientos.map((i, k)=>(
-                  <li key={k}><strong>{i.control}</strong> — {i.recomendacion} <em>({i.articulo})</em></li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
+        <>
+          <div
+            ref={resultadoRef}
+            style={{
+              flex: 1,
+              backgroundColor: '#e3f2fd',
+              border: '1px solid #90caf9',
+              borderRadius: 8,
+              padding: '1.5rem',
+            }}
+          >
+            <h3 style={{ color: '#1565c0', marginBottom: 12 }}>Resultado</h3>
+            <p><strong>Cumplimiento:</strong> {resultado.cumplimiento}%</p>
+            <p><strong>Nivel:</strong>{' '}
+              <span
+                style={{
+                  backgroundColor: colorNivel(resultado.cumplimiento),
+                  color: 'white',
+                  padding: '0.3rem 0.6rem',
+                  borderRadius: 5,
+                }}
+              >
+                {resultado.nivel}
+              </span>
+            </p>
+
+            {Array.isArray(resultado.incumplimientos) && resultado.incumplimientos.length > 0 && (
+              <>
+                <h4 style={{ marginTop: 16 }}>Controles no cumplidos:</h4>
+                <ul style={{ paddingLeft: '1.2rem' }}>
+                  {resultado.incumplimientos.map((item, i) => (
+                    <li key={i} style={{ marginBottom: 6 }}>
+                      <strong>{item.control}</strong> — {item.recomendacion} {item.articulo ? <em>({item.articulo})</em> : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          <button
+            onClick={downloadPdf}
+            style={{
+              marginTop: 20,
+              backgroundColor: '#00695c',
+              color: 'white',
+              padding: '10px 16px',
+              border: 'none',
+              borderRadius: 5,
+              cursor: 'pointer',
+            }}
+          >
+            📄 Descargar PDF
+          </button>
+        </>
       )}
     </div>
   );
 }
+
+export default EvaluacionFormulario;
