@@ -12,7 +12,6 @@ export default function AdminArticles() {
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
 
-  // paginación simple en cliente
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -70,9 +69,9 @@ export default function AdminArticles() {
 
   const exportCSV = () => {
     const rows = [
-      ["id","regulation_id","code","title","sort_index","created_at","body"],
+      ["id","regulation_id","code","title","created_at","body"],
       ...filtered.map(a => [
-        a.id, a.regulation_id, a.code, a.title ?? "", a.sort_index ?? "", a.created_at ?? "",
+        a.id, a.regulation_id, a.code, a.title ?? "", a.created_at ?? "",
         (a.body ?? "").replace(/\r?\n/g, " ").slice(0, 32000)
       ])
     ];
@@ -144,7 +143,6 @@ export default function AdminArticles() {
               <tr>
                 <th style={{ width: 110 }}>Código</th>
                 <th>Título</th>
-                <th style={{ width: 110 }}>Orden</th>
                 <th>Contenido (preview)</th>
               </tr>
             </thead>
@@ -153,7 +151,6 @@ export default function AdminArticles() {
                 <tr key={a.id}>
                   <td>{a.code}</td>
                   <td>{a.title || <em style={{ color:"#777" }}>(sin título)</em>}</td>
-                  <td>{a.sort_index ?? ""}</td>
                   <td title={a.body}>
                     {(a.body || "").slice(0, 240)}
                     {(a.body && a.body.length > 240) ? "…" : ""}
@@ -162,7 +159,7 @@ export default function AdminArticles() {
               ))}
               {!busy && pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", color: "#777" }}>
+                  <td colSpan={3} style={{ textAlign: "center", color: "#777" }}>
                     No hay artículos para mostrar.
                   </td>
                 </tr>

@@ -11,7 +11,6 @@ const qExec = (text, params) => db.query(text, params);
  * Normalizadores de payload (ES -> EN)
  * =========================================== */
 function normRegBody(body) {
-  // Soporta: {codigo, nombre} (ES) o {code, name} (EN)
   return {
     code: body.code ?? body.codigo,
     name: body.name ?? body.nombre,
@@ -35,7 +34,7 @@ function normControlBody(body) {
     regulation_id: body.regulation_id ?? body.regulacion_id,
     article_id: body.article_id ?? body.articulo_id,
     clave: body.clave ?? null,
-    pregunta: body.pregunta, // required
+    pregunta: body.pregunta,
     recomendacion: body.recomendacion ?? null,
     peso: body.peso != null ? Number(body.peso) : 1,
   };
@@ -46,7 +45,6 @@ function normControlBody(body) {
  * =========================================== */
 async function listRegulations(_req, res) {
   try {
-    // Alias a ES para que el front (r.codigo/r.nombre) funcione
     const q = `
       SELECT
         id,
@@ -60,7 +58,7 @@ async function listRegulations(_req, res) {
       ORDER BY code ASC
     `;
     const { rows } = await qExec(q);
-    res.json(rows); // arreglo puro con {id, codigo, nombre, activo, ...}
+    res.json(rows);
   } catch (e) {
     console.error('GET /api/admin/regulaciones', e);
     res.status(500).json({ error: 'Error listando regulaciones' });
@@ -95,7 +93,10 @@ async function listArticlesByReg(req, res) {
       SELECT id, regulation_id, code, title, body, sort_index, created_at
       FROM public.articles
       WHERE regulation_id = $1
-      ORDER BY sort_index NULLS LAST, created_at ASC
+      ORDER BY
+        /* extrae el primer número de 'code' (ej. "Art. 51") y ordena por él */
+        COALESCE(NULLIF(substring(code FROM '\\d+'), '')::int, 2147483647) ASC,
+        created_at ASC
     `;
     const { rows } = await qExec(q, [id]);
     res.json(rows);
@@ -165,26 +166,20 @@ async function createControl(req, res) {
 }
 
 /* ===========================================
- * RUTAS (ES y EN apuntando a los mismos handlers)
+ * RUTAS (ES y EN)
  * =========================================== */
-
-// Listar regulaciones
 router.get('/regulaciones', auth, requireAdmin, listRegulations);
 router.get('/regulations', auth, requireAdmin, listRegulations);
 
-// Crear regulación
 router.post('/regulaciones', auth, requireAdmin, createRegulation);
 router.post('/regulations', auth, requireAdmin, createRegulation);
 
-// Listar artículos por regulación
 router.get('/regulaciones/:id/articulos', auth, requireAdmin, listArticlesByReg);
 router.get('/regulations/:id/articles', auth, requireAdmin, listArticlesByReg);
 
-// Crear artículo
 router.post('/articulos', auth, requireAdmin, createArticle);
 router.post('/articles', auth, requireAdmin, createArticle);
 
-// Crear control
 router.post('/controles', auth, requireAdmin, createControl);
 router.post('/controls', auth, requireAdmin, createControl);
 
