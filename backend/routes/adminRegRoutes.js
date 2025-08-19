@@ -44,17 +44,25 @@ function normControlBody(body) {
 /* ===========================================
  * HANDLERS
  * =========================================== */
-async function listRegulations(req, res) {
+async function listRegulations(_req, res) {
   try {
+    // Alias a ES para que el front (r.codigo/r.nombre) funcione
     const q = `
-      SELECT id, code, name, version, source_url, is_active, created_at
+      SELECT
+        id,
+        code       AS codigo,
+        name       AS nombre,
+        version,
+        source_url,
+        is_active  AS activo,
+        created_at
       FROM public.regulations
       ORDER BY code ASC
     `;
     const { rows } = await qExec(q);
-    res.json(rows);
+    res.json(rows); // arreglo puro con {id, codigo, nombre, activo, ...}
   } catch (e) {
-    console.error('GET /api/admin/regulations', e);
+    console.error('GET /api/admin/regulaciones', e);
     res.status(500).json({ error: 'Error listando regulaciones' });
   }
 }
@@ -63,7 +71,7 @@ async function createRegulation(req, res) {
   try {
     const { code, name, version, source_url } = normRegBody(req.body);
     if (!code || !name) {
-      return res.status(400).json({ error: 'code/nombre y name/nombre son requeridos' });
+      return res.status(400).json({ error: 'code/codigo y name/nombre son requeridos' });
     }
 
     const q = `

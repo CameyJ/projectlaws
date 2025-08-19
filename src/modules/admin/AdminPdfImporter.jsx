@@ -1,6 +1,7 @@
 // src/modules/admin/AdminPdfImporter.jsx
 import { useEffect, useState } from "react";
 import { authHeader } from "../../utils/authHeader";
+import { useNavigate } from "react-router-dom";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -10,8 +11,8 @@ export default function AdminPdfImporter() {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const nav = useNavigate();
 
-  // Cargar regulaciones
   useEffect(() => {
     (async () => {
       try {
@@ -22,7 +23,8 @@ export default function AdminPdfImporter() {
           throw new Error(`HTTP ${res.status} ${res.statusText} ${text}`);
         }
         const data = await res.json();
-        setRegs(data || []);
+        const arr = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : []);
+        setRegs(arr || []);
       } catch (e) {
         console.error("Error cargando regulaciones:", e);
         setErr("Error de red/JS al cargar regulaciones.");
@@ -57,7 +59,7 @@ export default function AdminPdfImporter() {
       const data = await res.json();
       alert(`Listo. Insertados: ${data.inserted}  |  Omitidos: ${data.skipped || 0}`);
       setFile(null);
-      setRegId("");
+      // Mantengo la regulación seleccionada para que el botón "Ver artículos" navegue con contexto
     } catch (e) {
       console.error("Error importando PDF:", e);
       setErr("Error procesando PDF.");
@@ -85,7 +87,7 @@ export default function AdminPdfImporter() {
           <option value="">Seleccione…</option>
           {regs.map((r) => (
             <option key={r.id} value={r.id}>
-              {r.codigo} — {r.nombre}
+              {(r.codigo || r.code)} — {(r.nombre || r.name)}
             </option>
           ))}
         </select>
@@ -98,9 +100,20 @@ export default function AdminPdfImporter() {
           required
         />
 
-        <button type="submit" className="btn-primary" disabled={busy} style={{ marginTop: 16 }}>
-          {busy ? "Procesando…" : "Procesar PDF"}
-        </button>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
+          <button type="submit" className="btn-primary" disabled={busy} style={{ minWidth: 220 }}>
+            {busy ? "Procesando…" : "Procesar PDF"}
+          </button>
+
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!regId}
+            onClick={() => nav(`/admin/articulos?reg=${encodeURIComponent(regId)}`)}
+          >
+            Ver artículos
+          </button>
+        </div>
       </form>
     </div>
   );
