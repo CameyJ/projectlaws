@@ -18,19 +18,6 @@ const upload = multer({
 
 const q = (text, params) => db.query(text, params);
 
-// Helper robusto para obtener un cliente transaccional
-async function acquireClient() {
-  if (typeof db.connect === 'function') {
-    // pg.Pool nativo
-    return await db.connect();
-  }
-  if (typeof db.getClient === 'function') {
-    // wrapper propio (como en tu otro router)
-    return await db.getClient();
-  }
-  return null; // sin soporte de cliente explícito
-}
-
 // ─────────────────────────────────────────────
 // Normalización y partición de artículos
 // ─────────────────────────────────────────────
@@ -49,44 +36,68 @@ function normalizeText(txt) {
     .trim();
 }
 
-/** Soporta Art./Artículo/ARTÍCULO y Section/Sec. */
-function splitIntoArticles({ fullText, profile = 'GDPR', customRegex }) {
+/**
+ * Divide el texto en artículos.
+ * Soporta:
+ *  - Español:  "Artículo 1", "Art. 1", "ARTÍCULO 1"
+ *  - Inglés:   "Article 1", "ARTICLE 1"
+ *  - SOX:      "Section 1", "Sec. 1"
+ * Captura el título de la misma línea (tras :, ., –, — opcionales).
+ */
+function splitIntoArticles({ fullText }) {
   const text = normalizeText(fullText);
-  let pattern;
 
-  const P = (profile || 'GDPR').toUpperCase();
-  if (P === 'SOX') {
-    pattern = /^(?:Section|Sec\.)\s+(\d+)\s*(.*)$/gmi;
-  } else if (P === 'CUSTOM' && customRegex) {
-    pattern = new RegExp(customRegex, 'gmi');
-  } else {
-    pattern = /^(?:Art(?:í|i)culo|Art\.?)\s+(\d+)\s*(.*)$/gmi;
-  }
+  // Encabezado tolerante con variantes y signos de puntuación
+  // Grupos:
+  //  1 = número/código del artículo (permite sufijos tipo 5bis)
+  //  2 = título (resto de la línea)
+  const headerRe = new RegExp(
+    String.raw`^ *(?:Art(?:[íi]culo)?\.?|Artículo|Article|SECTION|Section|Sec\.)\s*` + // palabra clave
+    String.raw`(\d+[A-Za-z\-]*)` +                                                    // número (p.ej. 5, 5bis)
+    String.raw`\s*(?:[:.\-–—])?\s*` +                                                 // separador opcional
+    String.raw`(.*)$`,                                                                // título de la línea
+    'gmi'
+  );
 
+  // Encontramos encabezados + posiciones
   const headers = [];
   let m;
-  while ((m = pattern.exec(text)) !== null) {
-    headers.push({ index: m.index, code: m[1], title: (m[2] || '').trim() });
+  while ((m = headerRe.exec(text)) !== null) {
+    headers.push({
+      index: m.index,
+      num: (m[1] || '').trim(),
+      title: (m[2] || '').trim(),
+      line: (text.slice(m.index, text.indexOf('\n', m.index) === -1 ? text.length : text.indexOf('\n', m.index)) || '').trim()
+    });
   }
 
   if (!headers.length) {
-    return [
-      { code: 'DOC', title: 'Documento', body: text, sort_index: 1 }
-    ];
+    // Sin encabezados → 1 bloque
+    return [{ code: 'DOC', title: 'Documento', body: text, sort_index: 1 }];
   }
 
   const parts = [];
   for (let i = 0; i < headers.length; i++) {
     const start = headers[i].index;
     const end = i < headers.length - 1 ? headers[i + 1].index : text.length;
-    const slice = text.slice(start, end).trim();
+    let slice = text.slice(start, end).trim();
+
+    // Quitar la primera línea (el encabezado) del cuerpo
+    const firstNewline = slice.indexOf('\n');
+    if (firstNewline !== -1) {
+      slice = slice.slice(firstNewline + 1).trim();
+    } else {
+      slice = '';
+    }
+
     parts.push({
-      code: `Art. ${headers[i].code}`,
+      code: `Art. ${headers[i].num}`,
       title: headers[i].title || null,
       body: slice,
       sort_index: i + 1,
     });
   }
+
   return parts;
 }
 
@@ -103,8 +114,6 @@ router.get('/upload/ping', auth, requireAdmin, (_req, res) => {
 async function handleUpload(req, res) {
   try {
     const regulation_id = req.params.id || req.body.regulation_id;
-    const profile = (req.body.profile || 'GDPR').toUpperCase();
-    const customRegex = req.body.customRegex;
 
     if (!regulation_id) return res.status(400).json({ error: 'regulation_id es requerido' });
     if (!req.file || !req.file.buffer) return res.status(400).json({ error: 'Falta archivo PDF (key: file)' });
@@ -130,54 +139,39 @@ async function handleUpload(req, res) {
     }
     const fullText = parsed.text || '';
 
-    // 3) Split
-    const parts = splitIntoArticles({ fullText, profile, customRegex });
+    // 3) Split mejorado (incluye "Article N")
+    const parts = splitIntoArticles({ fullText });
 
-    // 4) Inserción (con transacción si hay cliente; si no, sin transacción)
-    const client = await acquireClient();
-    const runQuery = client ? client.query.bind(client) : q;
+    // 4) Inserción (sin transacción, simple y robusto)
+    let inserted = 0;
+    let skipped = 0;
 
-    try {
-      if (client) await runQuery('BEGIN');
+    for (const a of parts) {
+      const ex = await q(
+        `SELECT id FROM public.articles
+           WHERE regulation_id = $1 AND code ILIKE $2
+           LIMIT 1`,
+        [regulation_id, a.code]
+      );
+      if (ex.rowCount > 0) { skipped++; continue; }
 
-      let inserted = 0;
-      let skipped = 0;
-
-      for (const a of parts) {
-        const ex = await runQuery(
-          `SELECT id FROM public.articles
-             WHERE regulation_id = $1 AND code ILIKE $2
-             LIMIT 1`,
-          [regulation_id, a.code]
-        );
-        if (ex.rowCount > 0) { skipped++; continue; }
-
-        await runQuery(
-          `INSERT INTO public.articles
-             (id, regulation_id, code, title, body, sort_index, created_at)
-           VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, now())`,
-          [regulation_id, a.code, a.title, a.body, a.sort_index || null]
-        );
-        inserted++;
-      }
-
-      if (client) await runQuery('COMMIT');
-
-      return res.json({
-        ok: true,
-        regulation_id,
-        parsed_chars: fullText.length,
-        total_detected: parts.length,
-        inserted,
-        skipped,
-        profile,
-      });
-    } catch (e) {
-      if (client) await runQuery('ROLLBACK');
-      throw e;
-    } finally {
-      if (client) client.release();
+      await q(
+        `INSERT INTO public.articles
+           (id, regulation_id, code, title, body, sort_index, created_at)
+         VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, now())`,
+        [regulation_id, a.code, a.title, a.body, a.sort_index || null]
+      );
+      inserted++;
     }
+
+    return res.json({
+      ok: true,
+      regulation_id,
+      parsed_chars: fullText.length,
+      total_detected: parts.length,
+      inserted,
+      skipped,
+    });
   } catch (e) {
     console.error('POST /api/admin/upload/pdf', e);
     res.status(500).json({ error: 'Error procesando PDF' });
