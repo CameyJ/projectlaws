@@ -8,7 +8,7 @@ const db = require('../config/db');
 const qExec = (text, params) => db.query(text, params);
 
 /* ===========================================
- * Normalizadores de payload (ES -> EN)
+ * Normalizadores (ES -> EN)
  * =========================================== */
 function normRegBody(body) {
   return {
@@ -26,6 +26,7 @@ function normArticleBody(body) {
     title: body.title ?? body.titulo ?? null,
     body: body.body ?? body.cuerpo,
     sort_index: body.sort_index ?? body.orden ?? null,
+    is_enabled: typeof body.is_enabled === 'boolean' ? body.is_enabled : undefined,
   };
 }
 
@@ -47,13 +48,8 @@ async function listRegulations(_req, res) {
   try {
     const q = `
       SELECT
-        id,
-        code       AS codigo,
-        name       AS nombre,
-        version,
-        source_url,
-        is_active  AS activo,
-        created_at
+        id, code AS codigo, name AS nombre,
+        version, source_url, is_active AS activo, created_at
       FROM public.regulations
       ORDER BY code ASC
     `;
@@ -90,12 +86,11 @@ async function listArticlesByReg(req, res) {
   try {
     const { id } = req.params; // regulation_id
     const q = `
-      SELECT id, regulation_id, code, title, body, sort_index, created_at
+      SELECT id, regulation_id, code, title, body, sort_index, is_enabled, created_at
       FROM public.articles
       WHERE regulation_id = $1
       ORDER BY
-        /* extrae el primer número de 'code' (ej. "Art. 51") y ordena por él */
-        COALESCE(NULLIF(substring(code FROM '\\d+'), '')::int, 2147483647) ASC,
+        COALESCE( (regexp_match(code, '([0-9]+)'))[1]::int, 2147483647 ) ASC,
         created_at ASC
     `;
     const { rows } = await qExec(q, [id]);
@@ -115,21 +110,43 @@ async function createArticle(req, res) {
 
     const q = `
       INSERT INTO public.articles
-        (id, regulation_id, code, title, body, sort_index, created_at)
-      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, now())
+        (id, regulation_id, code, title, body, sort_index, is_enabled, created_at)
+      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, true, now())
       RETURNING *
     `;
     const { rows } = await qExec(q, [
-      regulation_id,
-      code,
-      title,
-      body,
+      regulation_id, code, title, body,
       Number.isInteger(sort_index) ? sort_index : null,
     ]);
     res.json(rows[0]);
   } catch (e) {
     console.error('POST /api/admin/articles', e);
     res.status(500).json({ error: 'Error creando artículo' });
+  }
+}
+
+// ✅ Nuevo: actualizar artículo (activar/desactivar y/o título)
+async function patchArticle(req, res) {
+  try {
+    const { id } = req.params;
+    const { is_enabled, title } = req.body;
+
+    const q = `
+      UPDATE public.articles
+         SET is_enabled = COALESCE($2, is_enabled),
+             title      = COALESCE($3, title)
+       WHERE id = $1
+       RETURNING id, regulation_id, code, title, body, sort_index, is_enabled, created_at
+    `;
+    const { rows } = await qExec(q, [id,
+      typeof is_enabled === 'boolean' ? is_enabled : null,
+      typeof title === 'string' ? title : null
+    ]);
+    if (!rows.length) return res.status(404).json({ error: 'Artículo no encontrado' });
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('PATCH /api/admin/articulos/:id', e);
+    res.status(500).json({ error: 'Error actualizando artículo' });
   }
 }
 
@@ -151,11 +168,7 @@ async function createControl(req, res) {
       RETURNING *
     `;
     const { rows } = await qExec(q, [
-      regulation_id,
-      article_id,
-      clave,
-      pregunta,
-      recomendacion,
+      regulation_id, article_id, clave, pregunta, recomendacion,
       Number.isFinite(peso) ? peso : 1,
     ]);
     res.json(rows[0]);
@@ -166,7 +179,7 @@ async function createControl(req, res) {
 }
 
 /* ===========================================
- * RUTAS (ES y EN)
+ * RUTAS (ES / EN)
  * =========================================== */
 router.get('/regulaciones', auth, requireAdmin, listRegulations);
 router.get('/regulations', auth, requireAdmin, listRegulations);
@@ -180,6 +193,11 @@ router.get('/regulations/:id/articles', auth, requireAdmin, listArticlesByReg);
 router.post('/articulos', auth, requireAdmin, createArticle);
 router.post('/articles', auth, requireAdmin, createArticle);
 
+// ✅ activar/desactivar (y opcionalmente cambiar título)
+router.patch('/articulos/:id', auth, requireAdmin, patchArticle);
+router.patch('/articles/:id', auth, requireAdmin, patchArticle);
+
+// Controls (preguntas)
 router.post('/controles', auth, requireAdmin, createControl);
 router.post('/controls', auth, requireAdmin, createControl);
 

@@ -4,6 +4,11 @@ import { authHeader } from "../../utils/authHeader";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
+function numFromCode(code) {
+  const m = /(\d+)/.exec(code || "");
+  return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+}
+
 export default function AdminArticles() {
   const [regs, setRegs] = useState([]);
   const [regId, setRegId] = useState("");
@@ -12,9 +17,14 @@ export default function AdminArticles() {
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
 
+  // preguntas por artículo (control nuevo)
+  const [questionDraft, setQuestionDraft] = useState({}); // { [articleId]: "texto..." }
+  const [savingRow, setSavingRow] = useState(null); // articleId mientras guarda
+
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  // cargar regulaciones
   useEffect(() => {
     (async () => {
       try {
@@ -33,6 +43,14 @@ export default function AdminArticles() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // cargar artículos por regulación
+  const loadArticles = async (rid) => {
+    const r = await fetch(`${API}/api/admin/regulaciones/${rid}/articulos`, { headers: authHeader() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    setItems(Array.isArray(data) ? data : []);
+  };
+
   useEffect(() => {
     if (!regId) return;
     (async () => {
@@ -41,10 +59,7 @@ export default function AdminArticles() {
         setErr("");
         setItems([]);
         setPage(1);
-        const r = await fetch(`${API}/api/admin/regulaciones/${regId}/articulos`, { headers: authHeader() });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        setItems(Array.isArray(data) ? data : []);
+        await loadArticles(regId);
       } catch (e) {
         console.error(e);
         setErr("No se pudieron cargar los artículos.");
@@ -56,8 +71,14 @@ export default function AdminArticles() {
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return items;
-    return items.filter(a =>
+    const base = items.slice().sort((a, b) => {
+      const na = numFromCode(a.code);
+      const nb = numFromCode(b.code);
+      if (na !== nb) return na - nb;
+      return String(a.created_at || "").localeCompare(String(b.created_at || ""));
+    });
+    if (!term) return base;
+    return base.filter(a =>
       (a.code || "").toLowerCase().includes(term) ||
       (a.title || "").toLowerCase().includes(term) ||
       (a.body || "").toLowerCase().includes(term)
@@ -69,9 +90,9 @@ export default function AdminArticles() {
 
   const exportCSV = () => {
     const rows = [
-      ["id","regulation_id","code","title","created_at","body"],
+      ["id","regulation_id","code","title","is_enabled","created_at","body"],
       ...filtered.map(a => [
-        a.id, a.regulation_id, a.code, a.title ?? "", a.created_at ?? "",
+        a.id, a.regulation_id, a.code, a.title ?? "", a.is_enabled ? "true" : "false", a.created_at ?? "",
         (a.body ?? "").replace(/\r?\n/g, " ").slice(0, 32000)
       ])
     ];
@@ -90,6 +111,56 @@ export default function AdminArticles() {
     a.remove();
     URL.revokeObjectURL(url);
   };
+
+  async function toggleEnabled(a) {
+    try {
+      setSavingRow(a.id);
+      const r = await fetch(`${API}/api/admin/articulos/${a.id}`, {
+        method: "PATCH",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ is_enabled: !a.is_enabled }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const updated = await r.json();
+      setItems(prev => prev.map(x => x.id === a.id ? updated : x));
+    } catch (e) {
+      console.error(e);
+      alert("No se pudo actualizar el estado del artículo.");
+    } finally {
+      setSavingRow(null);
+    }
+  }
+
+  async function createQuestion(a) {
+    const texto = (questionDraft[a.id] || "").trim();
+    if (!texto) { alert("Escribe una pregunta."); return; }
+    try {
+      setSavingRow(a.id);
+      const r = await fetch(`${API}/api/admin/controles`, {
+        method: "POST",
+        headers: { ...authHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          regulation_id: a.regulation_id,
+          article_id: a.id,
+          clave: a.code,            // opcional: usamos el código como clave
+          pregunta: texto,
+          recomendacion: null,
+          peso: 1,
+        }),
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(()=> "");
+        throw new Error(`HTTP ${r.status} ${txt}`);
+      }
+      setQuestionDraft(prev => ({ ...prev, [a.id]: "" }));
+      alert("✅ Pregunta creada para el artículo.");
+    } catch (e) {
+      console.error(e);
+      alert("No se pudo crear la pregunta.");
+    } finally {
+      setSavingRow(null);
+    }
+  }
 
   return (
     <div className="page-container">
@@ -138,12 +209,14 @@ export default function AdminArticles() {
         </div>
 
         <div style={{ overflowX: "auto", marginTop: 12 }}>
-          <table className="g-table" style={{ minWidth: 900 }}>
+          <table className="g-table" style={{ minWidth: 1100 }}>
             <thead>
               <tr>
-                <th style={{ width: 110 }}>Código</th>
+                <th style={{ width: 90 }}>Código</th>
                 <th>Título</th>
                 <th>Contenido (preview)</th>
+                <th style={{ width: 140 }}>Usar en evaluación</th>
+                <th style={{ width: 380 }}>Nueva pregunta</th>
               </tr>
             </thead>
             <tbody>
@@ -155,11 +228,44 @@ export default function AdminArticles() {
                     {(a.body || "").slice(0, 240)}
                     {(a.body && a.body.length > 240) ? "…" : ""}
                   </td>
+
+                  {/* Toggle usar/no usar */}
+                  <td>
+                    <button
+                      className="btn-secondary"
+                      disabled={savingRow === a.id}
+                      onClick={() => toggleEnabled(a)}
+                      style={{ minWidth: 120 }}
+                    >
+                      {savingRow === a.id ? "Guardando…" : a.is_enabled ? "✓ Usando" : "No usar"}
+                    </button>
+                  </td>
+
+                  {/* Campo para crear pregunta */}
+                  <td>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input
+                        style={{ flex: 1 }}
+                        placeholder="Escribe la pregunta ligada a este artículo…"
+                        value={questionDraft[a.id] ?? ""}
+                        onChange={(e) =>
+                          setQuestionDraft(prev => ({ ...prev, [a.id]: e.target.value }))
+                        }
+                      />
+                      <button
+                        className="btn-primary"
+                        disabled={savingRow === a.id || !(questionDraft[a.id] || "").trim()}
+                        onClick={() => createQuestion(a)}
+                      >
+                        {savingRow === a.id ? "Guardando…" : "Agregar"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!busy && pageItems.length === 0 && (
                 <tr>
-                  <td colSpan={3} style={{ textAlign: "center", color: "#777" }}>
+                  <td colSpan={5} style={{ textAlign: "center", color: "#777" }}>
                     No hay artículos para mostrar.
                   </td>
                 </tr>
