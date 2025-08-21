@@ -72,14 +72,15 @@ export default function Navbar() {
         {isAdmin && (
           <>
             <NavLink to="/admin" style={adminLinkStyle}>Admin</NavLink>
+            <NavLink to="/admin/empresas" style={adminLinkStyle}>Empresas</NavLink> {/* ⬅️ NUEVO */}
             <NavLink to="/admin/regulaciones" style={adminLinkStyle}>Regulaciones</NavLink>
             <NavLink to="/admin/controles" style={adminLinkStyle}>Controles</NavLink>
 
-            {/* Opcionales: déjalos si te sirven */}
+            {/* Opcionales */}
             <NavLink to="/admin/articulos" style={adminLinkStyle}>Artículos</NavLink>
             <NavLink to="/admin/controles/nuevo" style={adminLinkStyle}>Nuevo control</NavLink>
 
-            {/* ✅ Nuevo: importador de PDF */}
+            {/* Importador de PDF */}
             <NavLink to="/admin/importar" style={adminLinkStyle}>Importar PDF</NavLink>
           </>
         )}

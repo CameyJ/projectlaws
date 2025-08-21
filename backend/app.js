@@ -13,16 +13,17 @@ const requireAdmin = require('./middlewares/requireAdmin');
 const authRoutes = require('./routes/authRoutes');
 const evaRoutes  = require('./routes/evaRoutes');
 
-// Routers de admin
-const adminRegRoutes    = require('./routes/adminRegRoutes');     // CRUD regs/artículos/controles
-const adminUploadRoutes = require('./routes/adminUploadRoutes');  // Upload + parse PDF
+// Admin
+const adminRegRoutes        = require('./routes/adminRegRoutes');
+const adminUploadRoutes     = require('./routes/adminUploadRoutes');
 
-// 🔹 NUEVO: router para evidencias (subida de archivos)
-const evidenceRoutes = require('./routes/evidenceRoutes');
+// Empresas
+const companyRoutes         = require('./routes/companyRoutes');          // ✅ solo /api/empresas
+const adminCompaniesRoutes  = require('./routes/adminCompaniesRoutes');   // ✅ /api/admin/empresas
 
 const app = express();
 
-// --- Seguridad (Helmet) ---
+// Seguridad
 app.use(
   helmet({
     contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
@@ -31,14 +32,17 @@ app.use(
   })
 );
 
-// --- Logs (mejor antes de parsers) ---
+// Logs
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// --- CORS ---
-const allowed = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',').map(s => s.trim());
-const corsCfg = {
+// CORS
+const allowed = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map(s => s.trim());
+
+app.use(cors({
   origin(origin, cb) {
     if (!origin || allowed.includes(origin)) return cb(null, true);
     return cb(new Error('Origen no permitido por CORS'));
@@ -46,44 +50,49 @@ const corsCfg = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-};
-app.use(cors(corsCfg));
+}));
 
-// --- Parsers ---
+// Parsers
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// --- Health ---
+// Health
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// --- Rutas públicas (auth) ---
+// Públicas
 app.use('/api/auth', authRoutes);
 
-// --- Rutas privadas (evaluación) ---
+// Privadas (evaluación)
 app.use('/api', auth, evaRoutes);
 
-// 🔹 NUEVO: evidencias (requiere estar logueado)
-app.use('/api', auth, evidenceRoutes);
+// Empresas
+// - GET /api/empresas                     (auth; para el selector en Evaluación)
+app.use('/api', companyRoutes);
 
-// --- Archivos subidos (dev/local) ---
+// Admin Empresas
+// - GET    /api/admin/empresas            (auth+admin)
+// - POST   /api/admin/empresas            (auth+admin)
+// - PATCH  /api/admin/empresas/:id/toggle (auth+admin)
+app.use('/api', adminCompaniesRoutes);
+
+// Archivos subidos (solo dev)
 if (process.env.NODE_ENV !== 'production') {
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 }
 
-// --- Rutas admin ---
-// Nota: cada router ya valida auth + rol admin internamente.
+// Admin routers (regulaciones, importador PDF)
 app.use('/api/admin', adminRegRoutes);
 app.use('/api/admin', adminUploadRoutes);
 
-// Ping admin de ejemplo
+// Ping admin
 app.get('/api/admin/ping', auth, requireAdmin, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
 
-// --- 404 ---
+// 404
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
-// --- Handler de errores ---
+// Error handler
 app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(err.status || 500).json({ error: err.message || 'Error interno del servidor' });

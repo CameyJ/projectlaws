@@ -4,6 +4,8 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { authHeader } from "../../utils/authHeader";
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 function EvaluacionFormulario({ normativaSeleccionada }) {
   const [controles, setControles] = useState([]);
   const [respuestas, setRespuestas] = useState({});
@@ -18,7 +20,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         setRespuestas({});
         setResultado(null);
 
-        const res = await fetch(`http://localhost:4000/api/controles/${normativaSeleccionada}`, {
+        const res = await fetch(`${API}/api/controles/${normativaSeleccionada}`, {
           headers: { ...authHeader() }
         });
         if (!res.ok) {
@@ -45,20 +47,36 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = { empresa: 'Farmacia Vida', normativa: normativaSeleccionada, respuestas };
-    const res = await fetch('http://localhost:4000/api/evaluar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setResultado(data);
+    try {
+      const res = await fetch(`${API}/api/evaluar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status} ${txt}`);
+      }
+      const data = await res.json();
+      setResultado(data);
+    } catch (err) {
+      console.error('Error evaluando:', err);
+      setResultado(null);
+      alert('No se pudo evaluar. Reintenta más tarde.');
+    }
   };
 
-  const colorNivel = (pct) => {
-    if (pct >= 80) return '#2e7d32';
-    if (pct >= 60) return '#f9a825';
-    if (pct >= 40) return '#ef6c00';
-    return '#c62828';
+  // Rangos de madurez UI: 0–33 Básico, 34–66 Intermedio, 67–100 Avanzado
+  const nivelFromPct = (pct = 0) => {
+    if (pct >= 67) return 'Avanzado';
+    if (pct >= 34) return 'Intermedio';
+    return 'Básico';
+  };
+
+  const colorNivel = (pct = 0) => {
+    if (pct >= 67) return '#2e7d32'; // verde
+    if (pct >= 34) return '#f9a825'; // ámbar
+    return '#c62828';               // rojo
   };
 
   // ---- Descargar PDF con encabezado de la ley ----
@@ -104,6 +122,9 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       pdf.save(`Evaluacion_${safe(ley)}_${fecha}.pdf`);
     });
   };
+
+  const pct = resultado?.cumplimiento ?? 0;
+  const nivelUI = nivelFromPct(pct);
 
   return (
     <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
@@ -173,17 +194,17 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
             }}
           >
             <h3 style={{ color: '#1565c0', marginBottom: 12 }}>Resultado</h3>
-            <p><strong>Cumplimiento:</strong> {resultado.cumplimiento}%</p>
+            <p><strong>Cumplimiento:</strong> {pct}%</p>
             <p><strong>Nivel:</strong>{' '}
               <span
                 style={{
-                  backgroundColor: colorNivel(resultado.cumplimiento),
+                  backgroundColor: colorNivel(pct),
                   color: 'white',
                   padding: '0.3rem 0.6rem',
                   borderRadius: 5,
                 }}
               >
-                {resultado.nivel}
+                {nivelUI}
               </span>
             </p>
 

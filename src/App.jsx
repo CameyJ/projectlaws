@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./modules/auth/Login";
@@ -15,7 +16,8 @@ import ControlesAdmin from "./modules/admin/ControlesAdmin";
 import RegulacionesAdmin from "./modules/admin/RegulacionesAdmin";
 import AdminArticles from "./modules/admin/AdminArticles";
 import AdminControlBuilder from "./modules/admin/AdminControlBuilder";
-import AdminPdfImporter from "./modules/admin/AdminPdfImporter"; // ⬅️ importador PDF
+import AdminPdfImporter from "./modules/admin/AdminPdfImporter";
+import AdminCompanies from "./modules/admin/AdminCompanies"; // ⬅️ NUEVO
 
 export default function App() {
   return (
@@ -39,7 +41,8 @@ export default function App() {
               <Route path="/admin/articulos" element={<AdminArticles />} />
               <Route path="/admin/controles/nuevo" element={<AdminControlBuilder />} />
               <Route path="/admin/regulaciones/:id/articulos" element={<AdminArticles />} />
-              <Route path="/admin/importar" element={<AdminPdfImporter />} />  {/* ⬅️ NUEVA RUTA */}
+              <Route path="/admin/importar" element={<AdminPdfImporter />} />
+              <Route path="/admin/empresas" element={<AdminCompanies />} /> {/* ⬅️ NUEVA */}
             </Route>
           </Route>
         </Route>

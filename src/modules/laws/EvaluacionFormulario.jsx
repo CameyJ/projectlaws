@@ -1,5 +1,5 @@
 // src/modules/laws/EvaluacionFormulario.jsx
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { authHeader } from "../../utils/authHeader";
@@ -7,12 +7,52 @@ import { authHeader } from "../../utils/authHeader";
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 function EvaluacionFormulario({ normativaSeleccionada }) {
-  const [controles, setControles] = useState([]);
+  // Empresas
+  const [companies, setCompanies]   = useState([]);
+  const [companyId, setCompanyId]   = useState("");
+  const [compBusy, setCompBusy]     = useState(false);
+  const [compErr, setCompErr]       = useState("");
+
+  // Controles / Evaluación
+  const [controles, setControles]   = useState([]);
   const [respuestas, setRespuestas] = useState({});
-  const [resultado, setResultado] = useState(null);
+  const [resultado, setResultado]   = useState(null);
+
+  // Evidencias por control
   const [evidencias, setEvidencias] = useState({}); // { [clave]: { filesToSend: File[], uploaded: [{filename,url}], uploading: bool, err?: string } }
+
   const resultadoRef = useRef();
 
+  // Nombre de empresa seleccionado (derivado)
+  const selectedCompanyName = useMemo(() => {
+    const found = companies.find(c => c.id === companyId);
+    return found?.name || "";
+  }, [companies, companyId]);
+
+  // 1) Cargar empresas activas para el selector
+  useEffect(() => {
+    (async () => {
+      try {
+        setCompBusy(true);
+        setCompErr("");
+        const r = await fetch(`${API}/api/empresas`, { headers: { ...authHeader() } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const arr = Array.isArray(data) ? data : [];
+        setCompanies(arr);
+        if (arr.length && !companyId) setCompanyId(arr[0].id);
+      } catch (e) {
+        console.error(e);
+        setCompErr("No se pudieron cargar las empresas.");
+        setCompanies([]);
+      } finally {
+        setCompBusy(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 2) Cargar controles de la normativa
   useEffect(() => {
     if (!normativaSeleccionada) return;
     (async () => {
@@ -28,10 +68,12 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
           throw new Error(`HTTP ${res.status} ${txt}`);
-      }
+        }
         const data = await res.json();
         const arr = Array.isArray(data) ? data : [];
+
         setControles(arr);
+
         const inicial = {};
         const ev = {};
         arr.forEach((c) => {
@@ -82,7 +124,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
       const res = await fetch(`${API}/api/evidencias`, {
         method: 'POST',
-        headers: { ...authHeader() }, // NO fijar Content-Type
+        headers: { ...authHeader() }, // No poner Content-Type manualmente
         body: fd
       });
       if (!res.ok) {
@@ -106,7 +148,16 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = { empresa: 'Farmacia Vida', normativa: normativaSeleccionada, respuestas };
+
+    // Mantengo compatibilidad con el backend actual:
+    // enviar 'empresa' como nombre y (opcional) company_id si luego lo usas.
+    const payload = {
+      empresa: selectedCompanyName || "",
+      company_id: companyId || null,
+      normativa: normativaSeleccionada,
+      respuestas
+    };
+
     const res = await fetch(`${API}/api/evaluar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
@@ -123,7 +174,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
     return '#c62828';
   };
 
-  // ► Descargar PDF con encabezado y nombre de ley
+  // ► PDF con encabezado (ley + empresa)
   const downloadPdf = () => {
     const input = resultadoRef.current;
     if (!input) return;
@@ -143,9 +194,10 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       pdf.text(`Resultado de evaluación — ${ley}`, 40, 40);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      pdf.text(`Fecha: ${fecha}`, 40, 58);
+      pdf.text(`Empresa: ${selectedCompanyName || '-'}`, 40, 56);
+      pdf.text(`Fecha: ${fecha}`, 40, 70);
 
-      const topMargin = 70;
+      const topMargin = 84; // dejamos espacio para 2 líneas
       const bottomMargin = 30;
       const availableHeight = pdfHeight - topMargin - bottomMargin;
 
@@ -168,6 +220,25 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       {/* FORMULARIO */}
       <div style={{ flex: 1 }}>
         <h2 style={{ color: '#6a1b9a' }}>Evaluación: {normativaSeleccionada}</h2>
+
+        {/* Selector Empresa */}
+        <div className="g-card" style={{ padding: 12, marginBottom: 12 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span>Empresa</span>
+            <select
+              disabled={compBusy || companies.length === 0}
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+            >
+              {companies.length === 0 && <option value="">(sin empresas activas)</option>}
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+          {compErr && <small style={{ color: '#c62828' }}>{compErr}</small>}
+        </div>
+
         <form onSubmit={handleSubmit}>
           {controles.map((control) => {
             const val = respuestas[control.clave] || '';
@@ -205,7 +276,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
                   >❌ No</button>
                 </div>
 
-                {/* BLOQUE DE EVIDENCIA */}
+                {/* Evidencia */}
                 {showEvidenceBlock(val) && (
                   <div
                     style={{
@@ -235,14 +306,12 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
                       {ev.err && <span style={{ color: '#c62828' }}>{ev.err}</span>}
                     </div>
 
-                    {/* Seleccionados (sin subir) */}
                     {ev.filesToSend?.length > 0 && (
                       <div style={{ marginTop: 6 }}>
                         <small><strong>Seleccionados:</strong> {ev.filesToSend.map(f => f.name).join(', ')}</small>
                       </div>
                     )}
 
-                    {/* Subidos */}
                     {ev.uploaded?.length > 0 && (
                       <div style={{ marginTop: 6 }}>
                         <small><strong>Subidos:</strong>{' '}
@@ -295,6 +364,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
             }}
           >
             <h3 style={{ color: '#1565c0', marginBottom: 12 }}>Resultado</h3>
+            <p><strong>Empresa:</strong> {selectedCompanyName || '-'}</p>
             <p><strong>Cumplimiento:</strong> {resultado.cumplimiento}%</p>
             <p><strong>Nivel:</strong>{' '}
               <span
