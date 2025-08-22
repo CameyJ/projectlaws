@@ -29,22 +29,52 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
     return found?.name || "";
   }, [companies, companyId]);
 
-  // 1) Cargar empresas activas para el selector
+  // ---------- Helpers ----------
+  const normalizeCompanies = (raw) => {
+    // Acepta distintas formas: {id, name} o {id, nombre}
+    return (Array.isArray(raw) ? raw : [])
+      .map(x => ({
+        id: x.id || x.uuid || x.company_id || "",
+        name: x.name ?? x.nombre ?? x.razon_social ?? "",
+      }))
+      .filter(x => x.id && x.name);
+  };
+
+  // 1) Cargar empresas (con fallback)
   useEffect(() => {
     (async () => {
+      setCompBusy(true);
+      setCompErr("");
       try {
-        setCompBusy(true);
-        setCompErr("");
-        const r = await fetch(`${API}/api/empresas`, { headers: { ...authHeader() } });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        const arr = Array.isArray(data) ? data : [];
+        const h = authHeader() || {};
+
+        // 1. Ruta para selector de evaluación
+        let r = await fetch(`${API}/api/empresas`, { headers: { ...h } });
+
+        // Si falla, probamos con la de admin
+        if (!r.ok) {
+          // Guardamos texto por si necesitamos mostrarlo
+          const firstErr = await r.text().catch(() => "");
+          console.warn("GET /api/empresas falló:", r.status, firstErr);
+
+          r = await fetch(`${API}/api/admin/empresas`, { headers: { ...h } });
+          if (!r.ok) {
+            const secondErr = await r.text().catch(() => "");
+            throw new Error(
+              `No se pudieron cargar empresas. HTTP ${r.status} ${secondErr}`
+            );
+          }
+        }
+
+        const raw = await r.json();
+        const arr = normalizeCompanies(raw);
         setCompanies(arr);
+
         if (arr.length && !companyId) setCompanyId(arr[0].id);
       } catch (e) {
         console.error(e);
-        setCompErr("No se pudieron cargar las empresas.");
         setCompanies([]);
+        setCompErr("No se pudieron cargar las empresas.");
       } finally {
         setCompBusy(false);
       }
@@ -62,16 +92,18 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         setResultado(null);
         setEvidencias({});
 
+        const h = authHeader() || {};
         const res = await fetch(`${API}/api/controles/${normativaSeleccionada}`, {
-          headers: { ...authHeader() }
+          headers: { ...h }
         });
+
         if (!res.ok) {
           const txt = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${txt}`);
+          throw new Error(`Error cargando controles: HTTP ${res.status} ${txt}`);
         }
+
         const data = await res.json();
         const arr = Array.isArray(data) ? data : [];
-
         setControles(arr);
 
         const inicial = {};
@@ -122,15 +154,18 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       fd.append('clave', clave);
       item.filesToSend.forEach(f => fd.append('files', f));
 
+      const h = authHeader() || {};
       const res = await fetch(`${API}/api/evidencias`, {
         method: 'POST',
-        headers: { ...authHeader() }, // No poner Content-Type manualmente
+        headers: { ...h }, // No setear Content-Type manualmente
         body: fd
       });
+
       if (!res.ok) {
         const t = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status} ${t}`);
+        throw new Error(`Error subiendo evidencia: HTTP ${res.status} ${t}`);
       }
+
       const data = await res.json();
       setEvidencias(prev => ({
         ...prev,
@@ -149,8 +184,6 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Mantengo compatibilidad con el backend actual:
-    // enviar 'empresa' como nombre y (opcional) company_id si luego lo usas.
     const payload = {
       empresa: selectedCompanyName || "",
       company_id: companyId || null,
@@ -158,13 +191,25 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       respuestas
     };
 
-    const res = await fetch(`${API}/api/evaluar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    setResultado(data);
+    try {
+      const h = authHeader() || {};
+      const res = await fetch(`${API}/api/evaluar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...h },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        throw new Error(`Error evaluando: HTTP ${res.status} ${t}`);
+      }
+
+      const data = await res.json();
+      setResultado(data);
+    } catch (err) {
+      console.error(err);
+      alert("No se pudo completar la evaluación.");
+    }
   };
 
   const colorNivel = (pct) => {
@@ -197,7 +242,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       pdf.text(`Empresa: ${selectedCompanyName || '-'}`, 40, 56);
       pdf.text(`Fecha: ${fecha}`, 40, 70);
 
-      const topMargin = 84; // dejamos espacio para 2 líneas
+      const topMargin = 84;
       const bottomMargin = 30;
       const availableHeight = pdfHeight - topMargin - bottomMargin;
 
@@ -334,6 +379,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
           <button
             type="submit"
+            disabled={!companyId || controles.length === 0}
             style={{
               marginTop: 20,
               backgroundColor: '#ff6b00',
@@ -343,6 +389,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
               borderRadius: 8,
               fontSize: '1rem',
               cursor: 'pointer',
+              opacity: (!companyId || controles.length === 0) ? 0.7 : 1
             }}
           >
             Evaluar Cumplimiento
