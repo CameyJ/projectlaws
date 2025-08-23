@@ -71,7 +71,7 @@ export default function Navbar() {
 
         {isAdmin && (
           <>
-            <NavLink to="/admin" style={adminLinkStyle}>Admin</NavLink>
+            
             <NavLink to="/admin/empresas" style={adminLinkStyle}>Empresas</NavLink> {/* ⬅️ NUEVO */}
             <NavLink to="/admin/regulaciones" style={adminLinkStyle}>Regulaciones</NavLink>
            
