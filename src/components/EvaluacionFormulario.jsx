@@ -1,42 +1,115 @@
-// src/components/EvaluacionFormulario.jsx
-import { useEffect, useState, useRef } from 'react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+// src/modules/laws/EvaluacionFormulario.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { authHeader } from "../../utils/authHeader";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-function EvaluacionFormulario({ normativaSeleccionada }) {
+export default function EvaluacionFormulario({ normativaSeleccionada }) {
+  // Empresas
+  const [companies, setCompanies] = useState([]);
+  const [companyId, setCompanyId] = useState("");
+  const [compBusy, setCompBusy] = useState(false);
+  const [compErr, setCompErr] = useState("");
+
+  // Controles / Evaluación
   const [controles, setControles] = useState([]);
   const [respuestas, setRespuestas] = useState({});
+  const [comentarios, setComentarios] = useState({});
   const [resultado, setResultado] = useState(null);
+
+  // Evidencias por control
+  const [evidencias, setEvidencias] = useState({});
   const resultadoRef = useRef();
 
+  // Empresa seleccionada (derivado)
+  const selectedCompanyName = useMemo(() => {
+    const found = companies.find((c) => c.id === companyId);
+    return found?.name || "";
+  }, [companies, companyId]);
+
+  // Normalizar empresas de distintos endpoints
+  const normalizeCompanies = (raw) =>
+    (Array.isArray(raw) ? raw : [])
+      .map((x) => ({
+        id: x.id || x.uuid || x.company_id || "",
+        name: x.name ?? x.nombre ?? "",
+      }))
+      .filter((x) => x.id && x.name);
+
+  // Cargar empresas
+  useEffect(() => {
+    (async () => {
+      setCompBusy(true);
+      setCompErr("");
+      try {
+        const h = authHeader() || {};
+        let r = await fetch(`${API}/api/empresas`, { headers: { ...h } });
+        if (!r.ok) {
+          const t = await r.text().catch(() => "");
+          console.warn("GET /api/empresas:", r.status, t);
+          // Fallback admin (si el usuario tiene permisos)
+          r = await fetch(`${API}/api/admin/empresas`, { headers: { ...h } });
+          if (!r.ok) {
+            const t2 = await r.text().catch(() => "");
+            throw new Error(`No se pudieron cargar empresas. HTTP ${r.status} ${t2}`);
+          }
+        }
+        const raw = await r.json();
+        const arr = normalizeCompanies(raw);
+        setCompanies(arr);
+        if (arr.length && !companyId) setCompanyId(arr[0].id);
+      } catch (e) {
+        console.error(e);
+        setCompanies([]);
+        setCompErr("No se pudieron cargar las empresas.");
+      } finally {
+        setCompBusy(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cargar controles de la normativa seleccionada
   useEffect(() => {
     if (!normativaSeleccionada) return;
     (async () => {
       try {
         setControles([]);
         setRespuestas({});
+        setComentarios({});
         setResultado(null);
+        setEvidencias({});
 
-        const res = await fetch(`${API}/api/controles/${normativaSeleccionada}`, {
-          headers: { ...authHeader() }
+        const h = authHeader() || {};
+        const r = await fetch(`${API}/api/controles/${normativaSeleccionada}`, {
+          headers: { ...h },
         });
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status} ${txt}`);
+        if (!r.ok) {
+          const t = await r.text().catch(() => "");
+          throw new Error(`Error cargando controles: HTTP ${r.status} ${t}`);
         }
-        const data = await res.json();
+        const data = await r.json();
         const arr = Array.isArray(data) ? data : [];
         setControles(arr);
-        const inicial = {};
-        arr.forEach((c) => (inicial[c.clave] = ''));
-        setRespuestas(inicial);
+
+        const iniR = {};
+        const iniC = {};
+        const ev = {};
+        arr.forEach((c) => {
+          iniR[c.clave] = "";
+          iniC[c.clave] = "";
+          ev[c.clave] = { filesToSend: [], uploaded: [], uploading: false, err: "" };
+        });
+        setRespuestas(iniR);
+        setComentarios(iniC);
+        setEvidencias(ev);
       } catch (e) {
-        console.error('Error cargando controles:', e);
+        console.error(e);
         setControles([]);
         setRespuestas({});
+        setComentarios({});
       }
     })();
   }, [normativaSeleccionada]);
@@ -44,136 +117,387 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
   const handleRespuesta = (clave, valor) =>
     setRespuestas((prev) => ({ ...prev, [clave]: valor }));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const payload = { empresa: 'Farmacia Vida', normativa: normativaSeleccionada, respuestas };
+  const handleComentario = (clave, texto) =>
+    setComentarios((prev) => ({ ...prev, [clave]: texto }));
+
+  // Evidencias
+  const onPickFiles = (clave, fileList) => {
+    const files = Array.from(fileList || []);
+    setEvidencias((prev) => ({
+      ...prev,
+      [clave]: { ...(prev[clave] || {}), filesToSend: files, err: "" },
+    }));
+  };
+
+  const uploadEvidence = async (clave) => {
     try {
-      const res = await fetch(`${API}/api/evaluar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeader() },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status} ${txt}`);
+      setEvidencias((prev) => ({
+        ...prev,
+        [clave]: { ...(prev[clave] || {}), uploading: true, err: "" },
+      }));
+      const item = evidencias[clave] || { filesToSend: [] };
+      if (!item.filesToSend.length) {
+        setEvidencias((prev) => ({
+          ...prev,
+          [clave]: {
+            ...(prev[clave] || {}),
+            uploading: false,
+            err: "Selecciona archivo(s) primero.",
+          },
+        }));
+        return;
       }
-      const data = await res.json();
-      setResultado(data);
-    } catch (err) {
-      console.error('Error evaluando:', err);
-      setResultado(null);
-      alert('No se pudo evaluar. Reintenta más tarde.');
+
+      const fd = new FormData();
+      fd.append("normativa", (normativaSeleccionada || "").toUpperCase());
+      fd.append("clave", clave);
+      item.filesToSend.forEach((f) => fd.append("files", f));
+
+      const h = authHeader() || {};
+      const r = await fetch(`${API}/api/evidencias`, {
+        method: "POST",
+        headers: { ...h }, // NO setear Content-Type aquí
+        body: fd,
+      });
+
+      if (!r.ok) {
+        const t = await r.text().catch(() => "");
+        throw new Error(`HTTP ${r.status} ${t}`);
+      }
+
+      const data = await r.json();
+      setEvidencias((prev) => ({
+        ...prev,
+        [clave]: {
+          filesToSend: [],
+          uploaded: data.files || [],
+          uploading: false,
+          err: "",
+        },
+      }));
+      alert("Evidencia subida correctamente.");
+    } catch (e) {
+      console.error("uploadEvidence", e);
+      setEvidencias((prev) => ({
+        ...prev,
+        [clave]: {
+          ...(prev[clave] || {}),
+          uploading: false,
+          err: "Error subiendo evidencias.",
+        },
+      }));
     }
   };
 
-  // Rangos de madurez UI: 0–33 Básico, 34–66 Intermedio, 67–100 Avanzado
-  const nivelFromPct = (pct = 0) => {
-    if (pct >= 67) return 'Avanzado';
-    if (pct >= 34) return 'Intermedio';
-    return 'Básico';
-  };
+  // Envío evaluación con normalización
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  const colorNivel = (pct = 0) => {
-    if (pct >= 67) return '#2e7d32'; // verde
-    if (pct >= 34) return '#f9a825'; // ámbar
-    return '#c62828';               // rojo
-  };
+    const respuestasPayload = {};
+    controles.forEach((c) => {
+      respuestasPayload[c.clave] = {
+        valor: respuestas[c.clave] || "",
+        comentario: (comentarios[c.clave] || "").trim(),
+      };
+    });
 
-  // ---- Descargar PDF con encabezado de la ley ----
-  const downloadPdf = () => {
-    const input = resultadoRef.current;
-    if (!input) return;
+    const h = authHeader() || {};
+    const payload = {
+      empresa: selectedCompanyName || "",
+      company_id: companyId || null,
+      normativa: (normativaSeleccionada || "").toUpperCase(),
+      respuestas: respuestasPayload,
+    };
 
-    html2canvas(input, { scale: 2 }).then((canvas) => {
-      const imgData = canvas.toDataURL('image/png');
+    const post = (url) =>
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...h },
+        body: JSON.stringify(payload),
+      });
 
-      const pdf = new jsPDF('p', 'pt', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      // Encabezado
-      const ley = String(normativaSeleccionada || '').trim();
-      const fecha = new Date().toISOString().slice(0,10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.text(`Resultado de evaluación — ${ley}`, 40, 40);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      pdf.text(`Fecha: ${fecha}`, 40, 58);
-
-      // Área disponible bajo el encabezado
-      const topMargin = 70; // espacio para el header
-      const availableHeight = pdfHeight - topMargin - 30; // margen inferior
-
-      // Calcular tamaño imagen manteniendo proporción
-      const imgProps = pdf.getImageProperties(imgData);
-      const targetWidth = pdfWidth - 40 * 2; // márgenes laterales 40
-      let targetHeight = (imgProps.height * targetWidth) / imgProps.width;
-
-      // Si la imagen excede el alto disponible, la ajustamos
-      if (targetHeight > availableHeight) {
-        targetHeight = availableHeight;
+    try {
+      let r = await post(`${API}/api/evaluaciones`);
+      if (r.status === 404) r = await post(`${API}/api/evaluar`); // fallback (legacy)
+      if (!r.ok) {
+        const t = await r.text().catch(() => "");
+        throw new Error(t || `HTTP ${r.status}`);
       }
 
-      pdf.addImage(imgData, 'PNG', 40, topMargin, targetWidth, targetHeight);
+      const data = await r.json();
 
-      // Nombre de archivo
-      const safe = (s) => s.replace(/[^\w\-]+/g, '_');
+      const cumplimiento = Math.round((data.cumplimiento ?? data.pct ?? 0) * 1);
+      const nivel = data.nivel ?? data.level ?? "-";
+      const incumplimientos = Array.isArray(data.incumplimientos)
+        ? data.incumplimientos
+        : Array.isArray(data.missing)
+        ? data.missing
+        : [];
+      const comentariosOut = Array.isArray(data.comentarios) ? data.comentarios : [];
+
+      setResultado({
+        cumplimiento,
+        nivel,
+        incumplimientos,
+        comentarios: comentariosOut,
+        started_at: data.started_at ?? data.startedAt ?? null,
+        due_at: data.due_at ?? data.dueAt ?? null,
+        normativa: data.normativa ?? data.normative ?? payload.normativa,
+      });
+
+      alert("Evaluación guardada.");
+    } catch (err) {
+      console.error("Error evaluando:", err);
+      alert("No se pudo completar la evaluación.");
+    }
+  };
+
+  const colorNivel = (pct) =>
+    pct >= 80 ? "#2e7d32" : pct >= 60 ? "#f9a825" : pct >= 40 ? "#ef6c00" : "#c62828";
+
+  // ---- Helpers de presentación (artículos/comentarios) ----
+  const fmtArt = (a) => {
+    if (!a) return null;
+    const s = String(a).trim();
+    // Soporta "2", "Art 2", "Art. 2", "art.2"
+    const m = s.match(/^\s*(?:art\.?\s*)?(\d+[A-Za-z]?)\s*$/i);
+    if (m) return `Art. ${m[1]}`;
+    // Si ya viene con Art., lo normalizamos el punto/espacios
+    if (/^art/i.test(s)) return s.replace(/^art\.?\s*/i, "Art. ");
+    return s; // fallback
+  };
+
+  const comentariosNormalizados = useMemo(() => {
+    if (!resultado?.comentarios) return [];
+    return resultado.comentarios
+      .map((c) =>
+        typeof c === "string"
+          ? { comentario: c, articulo: null, articulo_titulo: null }
+          : {
+              comentario: c?.comentario ?? "",
+              articulo: c?.articulo ?? null,
+              articulo_titulo: c?.articulo_titulo ?? null,
+            }
+      )
+      .map((c) => ({
+        comentario: String(c.comentario || "").trim(),
+        articulo: c.articulo,
+        articulo_titulo: c.articulo_titulo,
+      }))
+      .filter((c) => c.comentario.length > 0);
+  }, [resultado]);
+
+  // PDF
+  const downloadPdf = () => {
+    const el = resultadoRef.current;
+    if (!el) return;
+    html2canvas(el, { scale: 2 }).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "pt", "a4");
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+
+      const ley = String(normativaSeleccionada || "").trim();
+      const fecha = new Date().toISOString().slice(0, 10);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text(`Resultado de evaluación — ${ley}`, 40, 40);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      pdf.text(`Empresa: ${selectedCompanyName || "-"}`, 40, 56);
+      pdf.text(`Fecha: ${fecha}`, 40, 70);
+
+      const top = 84,
+        bottom = 30;
+      const availH = pdfH - top - bottom;
+      const img = pdf.getImageProperties(imgData);
+      const w = pdfW - 80;
+      let h = (img.height * w) / img.width;
+      if (h > availH) h = availH;
+      pdf.addImage(imgData, "PNG", 40, top, w, h);
+
+      const safe = (s) => s.replace(/[^\w\-]+/g, "_");
       pdf.save(`Evaluacion_${safe(ley)}_${fecha}.pdf`);
     });
   };
 
-  const pct = resultado?.cumplimiento ?? 0;
-  const nivelUI = nivelFromPct(pct);
+  const showEvidenceBlock = (val) => val === "true" || val === "partial";
 
   return (
-    <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+    <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start" }}>
+      {/* FORM */}
       <div style={{ flex: 1 }}>
-        <h2 style={{ color: '#6a1b9a' }}>Evaluación: {normativaSeleccionada}</h2>
+        <h2 style={{ color: "#6a1b9a" }}>Evaluación: {normativaSeleccionada}</h2>
+
+        {/* Selector Empresa */}
+        <div className="g-card" style={{ padding: 12, marginBottom: 12 }}>
+          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span>Empresa</span>
+            <select
+              disabled={compBusy || companies.length === 0}
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+            >
+              {companies.length === 0 && <option value="">(sin empresas activas)</option>}
+              {companies.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {compErr && <small style={{ color: "#c62828" }}>{compErr}</small>}
+        </div>
+
         <form onSubmit={handleSubmit}>
-          {controles.map((control) => (
-            <div key={control.clave} style={{ marginBottom: 20 }}>
-              <p style={{ marginBottom: 8 }}><strong>{control.pregunta}</strong></p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button"
-                  onClick={() => handleRespuesta(control.clave, 'true')}
-                  style={{
-                    backgroundColor: respuestas[control.clave] === 'true' ? '#4CAF50' : '#e0e0e0',
-                    color: respuestas[control.clave] === 'true' ? 'white' : 'black',
-                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
-                  }}
-                >✔️ Sí</button>
-                <button type="button"
-                  onClick={() => handleRespuesta(control.clave, 'partial')}
-                  style={{
-                    backgroundColor: respuestas[control.clave] === 'partial' ? '#FFC107' : '#e0e0e0',
-                    color: respuestas[control.clave] === 'partial' ? 'white' : 'black',
-                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
-                  }}
-                >⚠️ Parcial</button>
-                <button type="button"
-                  onClick={() => handleRespuesta(control.clave, 'false')}
-                  style={{
-                    backgroundColor: respuestas[control.clave] === 'false' ? '#F44336' : '#e0e0e0',
-                    color: respuestas[control.clave] === 'false' ? 'white' : 'black',
-                    padding: '8px 12px', border: 'none', borderRadius: 5, cursor: 'pointer'
-                  }}
-                >❌ No</button>
+          {controles.map((control) => {
+            const val = respuestas[control.clave] || "";
+            const ev = evidencias[control.clave] || {
+              filesToSend: [],
+              uploaded: [],
+              uploading: false,
+              err: "",
+            };
+            return (
+              <div key={control.clave} style={{ marginBottom: 22 }}>
+                <p style={{ marginBottom: 8 }}>
+                  <strong>{control.pregunta}</strong>
+                </p>
+
+                {/* Botones de respuesta */}
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleRespuesta(control.clave, "true")}
+                    style={{
+                      backgroundColor: val === "true" ? "#4CAF50" : "#e0e0e0",
+                      color: val === "true" ? "white" : "black",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: 5,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ✔️ Sí
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRespuesta(control.clave, "partial")}
+                    style={{
+                      backgroundColor: val === "partial" ? "#FFC107" : "#e0e0e0",
+                      color: val === "partial" ? "white" : "black",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: 5,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ⚠️ Parcial
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRespuesta(control.clave, "false")}
+                    style={{
+                      backgroundColor: val === "false" ? "#F44336" : "#e0e0e0",
+                      color: val === "false" ? "white" : "black",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: 5,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ❌ No
+                  </button>
+                </div>
+
+                {/* Comentario */}
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ display: "block", marginBottom: 6 }}>Comentario (opcional)</label>
+                  <textarea
+                    rows={3}
+                    style={{ width: "100%", padding: 8 }}
+                    placeholder="Añade detalles, condicionantes, links internos, etc."
+                    value={comentarios[control.clave] || ""}
+                    onChange={(e) => handleComentario(control.clave, e.target.value)}
+                  />
+                </div>
+
+                {/* Evidencias (si marcó Sí o Parcial) */}
+                {showEvidenceBlock(val) && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      background: "#f5f8ff",
+                      border: "1px dashed #90caf9",
+                      padding: 12,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf"
+                        onChange={(e) => onPickFiles(control.clave, e.target.files)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => uploadEvidence(control.clave)}
+                        disabled={ev.uploading || !(ev.filesToSend?.length)}
+                        className="btn-secondary"
+                        style={{ padding: "8px 12px" }}
+                      >
+                        {ev.uploading ? "Subiendo…" : "Subir evidencia"}
+                      </button>
+                      {ev.err && <span style={{ color: "#c62828" }}>{ev.err}</span>}
+                    </div>
+
+                    {ev.filesToSend?.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <small>
+                          <strong>Seleccionados:</strong> {ev.filesToSend.map((f) => f.name).join(", ")}
+                        </small>
+                      </div>
+                    )}
+
+                    {ev.uploaded?.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <small>
+                          <strong>Subidos:</strong>{" "}
+                          {ev.uploaded.map((f, i) => (
+                            <a
+                              key={i}
+                              href={`${API}${f.url}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ marginRight: 10 }}
+                            >
+                              {f.filename}
+                            </a>
+                          ))}
+                        </small>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           <button
             type="submit"
+            disabled={!companyId || controles.length === 0}
             style={{
               marginTop: 20,
-              backgroundColor: '#ff6b00',
-              color: 'white',
-              padding: '12px 20px',
-              border: 'none',
+              backgroundColor: "#ff6b00",
+              color: "white",
+              padding: "12px 20px",
+              border: "none",
               borderRadius: 8,
-              fontSize: '1rem',
-              cursor: 'pointer',
+              fontSize: "1rem",
+              cursor: "pointer",
+              opacity: !companyId || controles.length === 0 ? 0.7 : 1,
             }}
           >
             Evaluar Cumplimiento
@@ -181,44 +505,95 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         </form>
       </div>
 
+      {/* RESULTADO */}
       {resultado && (
         <>
           <div
             ref={resultadoRef}
             style={{
               flex: 1,
-              backgroundColor: '#e3f2fd',
-              border: '1px solid #90caf9',
+              backgroundColor: "#e3f2fd",
+              border: "1px solid #90caf9",
               borderRadius: 8,
-              padding: '1.5rem',
+              padding: "1.5rem",
             }}
           >
-            <h3 style={{ color: '#1565c0', marginBottom: 12 }}>Resultado</h3>
-            <p><strong>Cumplimiento:</strong> {pct}%</p>
-            <p><strong>Nivel:</strong>{' '}
+            <h3 style={{ color: "#1565c0", marginBottom: 12 }}>Resultado</h3>
+            <p>
+              <strong>Empresa:</strong> {selectedCompanyName || "-"}
+            </p>
+            <p>
+              <strong>Cumplimiento:</strong> {resultado.cumplimiento ?? 0}%
+            </p>
+            <p>
+              <strong>Nivel:</strong>{" "}
               <span
                 style={{
-                  backgroundColor: colorNivel(pct),
-                  color: 'white',
-                  padding: '0.3rem 0.6rem',
+                  backgroundColor: colorNivel(resultado.cumplimiento ?? 0),
+                  color: "white",
+                  padding: "0.3rem 0.6rem",
                   borderRadius: 5,
                 }}
               >
-                {nivelUI}
+                {resultado.nivel ?? "-"}
               </span>
             </p>
 
             {Array.isArray(resultado.incumplimientos) && resultado.incumplimientos.length > 0 && (
               <>
                 <h4 style={{ marginTop: 16 }}>Controles no cumplidos:</h4>
-                <ul style={{ paddingLeft: '1.2rem' }}>
+                <ul style={{ paddingLeft: "1.2rem" }}>
                   {resultado.incumplimientos.map((item, i) => (
-                    <li key={i} style={{ marginBottom: 6 }}>
-                      <strong>{item.control}</strong> — {item.recomendacion} {item.articulo ? <em>({item.articulo})</em> : null}
+                    <li key={i} style={{ marginBottom: 10 }}>
+                      <strong>{item.control}</strong> — {item.recomendacion}{" "}
+                      {(item.articulo || item.articulo_titulo) && (
+                        <em>
+                          (
+                          {item.articulo ? fmtArt(item.articulo) : "Art."}
+                          {item.articulo_titulo ? `, ${item.articulo_titulo}` : ""}
+                          )
+                        </em>
+                      )}
                     </li>
                   ))}
                 </ul>
               </>
+            )}
+
+            {comentariosNormalizados.length > 0 && (
+              <>
+                <h4 style={{ marginTop: 16 }}>Comentarios agregados:</h4>
+                <ul style={{ paddingLeft: "1.2rem" }}>
+                  {comentariosNormalizados.map((c, i) => (
+                    <li key={i} style={{ marginBottom: 6 }}>
+                      {c.articulo ? (
+                        <strong>
+                          {fmtArt(c.articulo)}
+                          {c.articulo_titulo ? `: ${c.articulo_titulo}` : ""}
+                        </strong>
+                      ) : null}{" "}
+                      <em>{c.comentario}</em>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {(resultado.started_at || resultado.due_at) && (
+              <div style={{ marginTop: 12, fontSize: 13 }}>
+                {resultado.started_at && (
+                  <div>
+                    <strong>Fecha inicio:</strong>{" "}
+                    {new Date(resultado.started_at).toLocaleString()}
+                  </div>
+                )}
+                {resultado.due_at && (
+                  <div>
+                    <strong>Fecha límite:</strong>{" "}
+                    {new Date(resultado.due_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -226,12 +601,12 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
             onClick={downloadPdf}
             style={{
               marginTop: 20,
-              backgroundColor: '#00695c',
-              color: 'white',
-              padding: '10px 16px',
-              border: 'none',
+              backgroundColor: "#00695c",
+              color: "white",
+              padding: "10px 16px",
+              border: "none",
               borderRadius: 5,
-              cursor: 'pointer',
+              cursor: "pointer",
             }}
           >
             📄 Descargar PDF
@@ -241,5 +616,3 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
     </div>
   );
 }
-
-export default EvaluacionFormulario;

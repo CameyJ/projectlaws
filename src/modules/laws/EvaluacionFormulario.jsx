@@ -156,7 +156,7 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
       const h = authHeader() || {};
       const r = await fetch(`${API}/api/evidencias`, {
         method: "POST",
-        headers: { ...h }, // NO setear Content-Type aquí (lo hace el browser)
+        headers: { ...h }, // NO setear Content-Type aquí
         body: fd,
       });
 
@@ -189,7 +189,7 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
     }
   };
 
-  // Envío evaluación con fallback y normalización de respuesta
+  // Envío evaluación con normalización
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -217,10 +217,8 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
       });
 
     try {
-      // 1) nuevo endpoint
       let r = await post(`${API}/api/evaluaciones`);
-      // 2) fallback al endpoint antiguo si no existe
-      if (r.status === 404) r = await post(`${API}/api/evaluar`);
+      if (r.status === 404) r = await post(`${API}/api/evaluar`); // fallback (legacy)
       if (!r.ok) {
         const t = await r.text().catch(() => "");
         throw new Error(t || `HTTP ${r.status}`);
@@ -228,7 +226,6 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
 
       const data = await r.json();
 
-      // Normalizar: soporta {cumplimiento, nivel} y {pct, level}
       const cumplimiento = Math.round((data.cumplimiento ?? data.pct ?? 0) * 1);
       const nivel = data.nivel ?? data.level ?? "-";
       const incumplimientos = Array.isArray(data.incumplimientos)
@@ -236,26 +233,13 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
         : Array.isArray(data.missing)
         ? data.missing
         : [];
-
-      // Comentarios: usar los del backend si vienen, de lo contrario formarlos desde lo escrito
-      const comentariosResp = Array.isArray(data.comentarios)
-        ? data.comentarios
-        : controles
-            .map((c) => {
-              const txt = (comentarios[c.clave] || "").trim();
-              if (!txt) return null;
-              return {
-                articulo: c.articulo ?? c.article ?? null,
-                comentario: txt,
-              };
-            })
-            .filter(Boolean);
+      const comentariosOut = Array.isArray(data.comentarios) ? data.comentarios : [];
 
       setResultado({
         cumplimiento,
         nivel,
         incumplimientos,
-        comentarios: comentariosResp,
+        comentarios: comentariosOut,
         started_at: data.started_at ?? data.startedAt ?? null,
         due_at: data.due_at ?? data.dueAt ?? null,
         normativa: data.normativa ?? data.normative ?? payload.normativa,
@@ -270,6 +254,38 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
 
   const colorNivel = (pct) =>
     pct >= 80 ? "#2e7d32" : pct >= 60 ? "#f9a825" : pct >= 40 ? "#ef6c00" : "#c62828";
+
+  // ---- Helpers de presentación (artículos/comentarios) ----
+  const fmtArt = (a) => {
+    if (!a) return null;
+    const s = String(a).trim();
+    // Soporta "2", "Art 2", "Art. 2", "art.2"
+    const m = s.match(/^\s*(?:art\.?\s*)?(\d+[A-Za-z]?)\s*$/i);
+    if (m) return `Art. ${m[1]}`;
+    // Si ya viene con Art., lo normalizamos el punto/espacios
+    if (/^art/i.test(s)) return s.replace(/^art\.?\s*/i, "Art. ");
+    return s; // fallback
+  };
+
+  const comentariosNormalizados = useMemo(() => {
+    if (!resultado?.comentarios) return [];
+    return resultado.comentarios
+      .map((c) =>
+        typeof c === "string"
+          ? { comentario: c, articulo: null, articulo_titulo: null }
+          : {
+              comentario: c?.comentario ?? "",
+              articulo: c?.articulo ?? null,
+              articulo_titulo: c?.articulo_titulo ?? null,
+            }
+      )
+      .map((c) => ({
+        comentario: String(c.comentario || "").trim(),
+        articulo: c.articulo,
+        articulo_titulo: c.articulo_titulo,
+      }))
+      .filter((c) => c.comentario.length > 0);
+  }, [resultado]);
 
   // PDF
   const downloadPdf = () => {
@@ -528,22 +544,35 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
                 <h4 style={{ marginTop: 16 }}>Controles no cumplidos:</h4>
                 <ul style={{ paddingLeft: "1.2rem" }}>
                   {resultado.incumplimientos.map((item, i) => (
-                    <li key={i} style={{ marginBottom: 6 }}>
+                    <li key={i} style={{ marginBottom: 10 }}>
                       <strong>{item.control}</strong> — {item.recomendacion}{" "}
-                      {item.articulo ? <em>({item.articulo})</em> : null}
+                      {(item.articulo || item.articulo_titulo) && (
+                        <em>
+                          (
+                          {item.articulo ? fmtArt(item.articulo) : "Art."}
+                          {item.articulo_titulo ? `, ${item.articulo_titulo}` : ""}
+                          )
+                        </em>
+                      )}
                     </li>
                   ))}
                 </ul>
               </>
             )}
 
-            {Array.isArray(resultado.comentarios) && resultado.comentarios.length > 0 && (
+            {comentariosNormalizados.length > 0 && (
               <>
                 <h4 style={{ marginTop: 16 }}>Comentarios agregados:</h4>
                 <ul style={{ paddingLeft: "1.2rem" }}>
-                  {resultado.comentarios.map((c, i) => (
+                  {comentariosNormalizados.map((c, i) => (
                     <li key={i} style={{ marginBottom: 6 }}>
-                      {c.articulo ? <strong>Art. {c.articulo}:</strong> : null} <em>{c.comentario}</em>
+                      {c.articulo ? (
+                        <strong>
+                          {fmtArt(c.articulo)}
+                          {c.articulo_titulo ? `: ${c.articulo_titulo}` : ""}
+                        </strong>
+                      ) : null}{" "}
+                      <em>{c.comentario}</em>
                     </li>
                   ))}
                 </ul>
@@ -554,12 +583,14 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
               <div style={{ marginTop: 12, fontSize: 13 }}>
                 {resultado.started_at && (
                   <div>
-                    <strong>Fecha inicio:</strong> {new Date(resultado.started_at).toLocaleString()}
+                    <strong>Fecha inicio:</strong>{" "}
+                    {new Date(resultado.started_at).toLocaleString()}
                   </div>
                 )}
                 {resultado.due_at && (
                   <div>
-                    <strong>Fecha límite:</strong> {new Date(resultado.due_at).toLocaleString()}
+                    <strong>Fecha límite:</strong>{" "}
+                    {new Date(resultado.due_at).toLocaleString()}
                   </div>
                 )}
               </div>
