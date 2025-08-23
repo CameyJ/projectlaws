@@ -11,16 +11,16 @@ const auth = require('./middlewares/auth');
 const requireAdmin = require('./middlewares/requireAdmin');
 
 // ---------- Rutas ----------
-const authRoutes           = require('./routes/authRoutes');
-const companyRoutes        = require('./routes/companyRoutes');          // /api/empresas
-const evaRoutes            = require('./routes/evaRoutes');              // controles (y lo que ya tenías)
-const evidenceRoutes       = require('./routes/evidenceRoutes');         // /api/evidencias
-const evaluationRoutes     = require('./routes/evaluationRoutes');       // /api/evaluaciones  ✅ SOLO UNA VEZ
+const authRoutes           = require('./routes/authRoutes');          // /api/auth/*
+const companyRoutes        = require('./routes/companyRoutes');       // /api/empresas (público con token)
+const evaRoutes            = require('./routes/evaRoutes');           // /api/controles/:normativa ...
+const evidenceRoutes       = require('./routes/evidenceRoutes');      // /api/evidencias
+const evaluationRoutes     = require('./routes/evaluationRoutes');    // /api/evaluaciones
 
 // Admin
-const adminRegRoutes       = require('./routes/adminRegRoutes');
-const adminUploadRoutes    = require('./routes/adminUploadRoutes');
-const adminCompaniesRoutes = require('./routes/adminCompaniesRoutes');
+const adminRegRoutes       = require('./routes/adminRegRoutes');      // /api/admin/regulaciones...
+const adminUploadRoutes    = require('./routes/adminUploadRoutes');   // /api/admin/importar...
+const adminCompaniesRoutes = require('./routes/adminCompaniesRoutes');// /api/admin/empresas...
 
 const app = express();
 
@@ -63,21 +63,24 @@ app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 // ---------- Públicas ----------
 app.use('/api/auth', authRoutes);
 
-// ---------- Orden de routers ----------
-// Empresas primero para no caer en otras rutas
+// Empresas (quedan fuera de auth para que el selector funcione con cualquier rol autenticado
+// si tu companyRoutes ya valida user en middleware interno, puedes moverlo a protegidas)
 app.use('/api', companyRoutes);
 
-// Protegidas
-app.use('/api', auth, evaRoutes);           // controles, etc.
-app.use('/api', auth, evidenceRoutes);      // evidencias
-app.use('/api', auth, evaluationRoutes);    // evaluaciones  ✅ SOLO AQUÍ
+// ---------- Protegidas (requieren token) ----------
+// Controles (preguntas de la normativa)
+app.use('/api', auth, evaRoutes);
 
-// Admin
-app.use('/api', adminCompaniesRoutes);
-app.use('/api/admin', adminRegRoutes);
-app.use('/api/admin', adminUploadRoutes);
+// Evidencias (multipart) y Evaluaciones (guardar/listar/detalle)
+app.use('/api', auth, evidenceRoutes);
+app.use('/api', auth, evaluationRoutes);
 
-// Archivos subidos (solo dev)
+// ---------- Admin (token + rol admin) ----------
+app.use('/api/admin', auth, requireAdmin, adminCompaniesRoutes);
+app.use('/api/admin', auth, requireAdmin, adminRegRoutes);
+app.use('/api/admin', auth, requireAdmin, adminUploadRoutes);
+
+// ---------- Archivos subidos (solo dev) ----------
 if (process.env.NODE_ENV !== 'production') {
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 }
@@ -87,10 +90,10 @@ app.get('/api/admin/ping', auth, requireAdmin, (req, res) => {
   res.json({ ok: true, user: req.user });
 });
 
-// 404
+// ---------- 404 ----------
 app.use((req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
-// Error handler
+// ---------- Error handler ----------
 app.use((err, _req, res, _next) => {
   console.error(err);
   res.status(err.status || 500).json({ error: err.message || 'Error interno del servidor' });
