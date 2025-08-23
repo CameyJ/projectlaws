@@ -1,12 +1,12 @@
+// backend/routes/evaluationRoutes.js
 const express = require('express');
 const { pool, query } = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
-/* ----------------------------- helpers de esquema ----------------------------- */
+/* ------------------------- utilidades de esquema ------------------------- */
 
-// cache para columnas dinámicas de evaluation_answers
 let cachedCols = null;
 
 async function getAnswerColumns() {
@@ -20,65 +20,56 @@ async function getAnswerColumns() {
 
   const names = new Set(r.rows.map(x => x.column_name));
 
+  // valor / respuesta / value
   let valueCol = null;
   if (names.has('respuesta')) valueCol = 'respuesta';
-  else if (names.has('valor'))   valueCol = 'valor';
-  else if (names.has('value'))   valueCol = 'value';
+  else if (names.has('valor')) valueCol = 'valor';
+  else if (names.has('value')) valueCol = 'value';
 
+  // clave del control
   let controlKeyCol = null;
   if (names.has('control_clave')) controlKeyCol = 'control_clave';
   else if (names.has('control_key')) controlKeyCol = 'control_key';
 
+  // comentario
   let commentCol = null;
   if (names.has('comentario')) commentCol = 'comentario';
   else if (names.has('comment')) commentCol = 'comment';
 
+  // artículo (opcional)
   let articleCol = null;
   if (names.has('articulo')) articleCol = 'articulo';
   else if (names.has('article')) articleCol = 'article';
+
+  // timestamps opcionales
+  const hasUpdatedAt = names.has('updated_at');
 
   if (!controlKeyCol || !valueCol) {
     throw new Error('evaluation_answers requiere (control_clave/control_key) y (respuesta/valor/value)');
   }
 
-  cachedCols = { controlKeyCol, valueCol, commentCol, articleCol };
+  cachedCols = { controlKeyCol, valueCol, commentCol, articleCol, hasUpdatedAt };
   return cachedCols;
 }
 
 async function tableExists(name) {
   const r = await query(
-    `SELECT 1
-       FROM information_schema.tables
-      WHERE table_schema='public' AND table_name=$1
-      LIMIT 1`,
+    `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1 LIMIT 1`,
     [name]
   );
   return r.rowCount > 0;
 }
 
-async function columnExists(table, column) {
-  const r = await query(
-    `SELECT 1
-       FROM information_schema.columns
-      WHERE table_schema='public' AND table_name=$1 AND column_name=$2
-      LIMIT 1`,
-    [table, column]
-  );
-  return r.rowCount > 0;
-}
-
-// resuelve nombres de tablas (es/en)
 async function resolveTableNames() {
-  const controls  = (await tableExists('controles'))     ? 'controles'     : 'controls';
-  const articles  = (await tableExists('articulos'))     ? 'articulos'     : 'articles';
-  const regs      = (await tableExists('regulaciones'))  ? 'regulaciones'  : 'regulations';
+  const controls = (await tableExists('controles'))    ? 'controles'    : 'controls';
+  const articles = (await tableExists('articulos'))    ? 'articulos'    : 'articles';
+  const regs     = (await tableExists('regulaciones')) ? 'regulaciones' : 'regulations';
   return { controls, articles, regs };
 }
 
-// % y nivel
 function calcPctAndLevel(respuestas) {
   const ks = Object.keys(respuestas || {});
-  if (!ks.length) return { pct: 0, level: 'Básico' };
+  if (!ks.length) return { pct: 0, level: 'Crítico' };
 
   let score = 0;
   ks.forEach(k => {
@@ -89,52 +80,34 @@ function calcPctAndLevel(respuestas) {
   });
   const pct = Math.round((score / ks.length) * 100);
 
-  let level = 'Básico';
+  let level = 'Crítico';
   if (pct >= 80) level = 'Alto';
   else if (pct >= 60) level = 'Medio';
   else if (pct >= 40) level = 'Bajo';
-  else level = 'Crítico';
   return { pct, level };
 }
 
-/* -------------------- meta de controles + artículo (con título) -------------------- */
-/**
- * Devuelve un Map por clave de control:
- *   { clave, pregunta, articulo: 'Art. 2', articulo_titulo: 'Material scope' }
- */
+/* --------------------- metadatos de controles/artículos ------------------- */
+
 async function fetchControlsMeta(normativa) {
   const { controls, articles, regs } = await resolveTableNames();
+  const nameCol = (regs === 'regulaciones') ? 'nombre' : 'name';
 
-  // columnas disponibles en regulations
-  const hasNombre = await columnExists(regs, 'nombre');
-  const hasName   = await columnExists(regs, 'name');
-
-  // WHERE dinámico (solo columnas existentes)
-  const whereParts = ['code = $1'];
-  if (hasNombre) whereParts.push('nombre = $1');
-  if (hasName)   whereParts.push('name = $1');
-
-  const regSql = `
-    SELECT id
-      FROM ${regs}
-     WHERE ${whereParts.join(' OR ')}
-     LIMIT 1
-  `;
-  const rReg = await query(regSql, [String(normativa).toUpperCase()]);
+  const rReg = await query(
+    `SELECT id FROM ${regs} WHERE code = $1 OR ${nameCol} = $1 LIMIT 1`,
+    [String(normativa).toUpperCase()]
+  );
   if (!rReg.rowCount) return new Map();
-
   const regId = rReg.rows[0].id;
 
-  // Unir por article_id o por texto "Art. n" almacenado en c.articulo
   const sql = `
     SELECT
       c.clave,
       c.pregunta,
-      COALESCE(a.code, c.articulo) AS art_code,
-      a.title                       AS art_title
+      COALESCE(a.code, NULL)  AS art_code,
+      COALESCE(a.title, NULL) AS art_title
     FROM ${controls} c
-    LEFT JOIN ${articles} a
-      ON (a.id = c.article_id) OR (a.code = c.articulo)
+    LEFT JOIN ${articles} a ON a.id = c.article_id
     WHERE c.regulation_id = $1
     ORDER BY c.clave
   `;
@@ -152,7 +125,38 @@ async function fetchControlsMeta(normativa) {
   return map;
 }
 
-/* ---------------------------------- POST ---------------------------------- */
+/** Construye {incumplimientos, comentarios} igual que en el POST */
+function buildOutcome(meta, answers) {
+  const incumplimientos = [];
+  const comentariosOut = [];
+
+  for (const e of answers) {
+    const m = meta.get(e.clave);
+    if ((e.comentario || '').trim().length) {
+      comentariosOut.push({
+        articulo: m?.articulo || null,
+        articulo_titulo: m?.articulo_titulo || null,
+        comentario: e.comentario.trim(),
+      });
+    }
+    if (String(e.valor).trim() !== 'true') {
+      const recomendacion =
+        String(e.valor).trim() === 'partial'
+          ? 'Revisar y completar este control.'
+          : 'Implementar este control.';
+      incumplimientos.push({
+        control: m?.pregunta || e.clave,
+        articulo: m?.articulo || null,
+        articulo_titulo: m?.articulo_titulo || null,
+        recomendacion,
+      });
+    }
+  }
+
+  return { incumplimientos, comentarios: comentariosOut };
+}
+
+/* --------------------------------- POST ---------------------------------- */
 
 router.post('/evaluaciones', async (req, res) => {
   const client = await pool.connect();
@@ -166,11 +170,10 @@ router.post('/evaluaciones', async (req, res) => {
     const cols = await getAnswerColumns();
     const meta = await fetchControlsMeta(norm);
 
-    // normalizar respuestas del payload
     const entries = Object.entries(respuestas || {})
       .map(([k, obj]) => {
-        const clave      = String(k || obj?.clave || obj?.key || '').trim();
-        const valor      = String(obj?.valor ?? obj?.respuesta ?? obj?.value ?? '').trim();
+        const clave = String(k || obj?.clave || obj?.key || '').trim();
+        const valor = String(obj?.valor ?? obj?.respuesta ?? obj?.value ?? '').trim();
         const comentario = String(obj?.comentario ?? obj?.comment ?? '').trim();
         return { clave, valor, comentario };
       })
@@ -181,7 +184,6 @@ router.post('/evaluaciones', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // evaluations
     const insEval = await client.query(
       `INSERT INTO evaluations (id, company_id, company_name, normativa, started_at, due_at, status)
        VALUES ($1, $2, $3, $4, NOW(), NOW() + INTERVAL '7 day', 'open')
@@ -189,7 +191,6 @@ router.post('/evaluaciones', async (req, res) => {
       [id, company_id, empresa || null, norm]
     );
 
-    // evaluation_answers
     if (entries.length) {
       const fields = ['evaluation_id', cols.controlKeyCol, cols.valueCol];
       if (cols.commentCol) fields.push(cols.commentCol);
@@ -200,10 +201,10 @@ router.post('/evaluaciones', async (req, res) => {
       let i = 1;
 
       for (const e of entries) {
-        const m = meta.get(e.clave);
         const row = [id, e.clave, e.valor];
         if (cols.commentCol) row.push(e.comentario || null);
-        if (cols.articleCol) row.push(m?.articulo || null); // guarda "Art. n" si la columna existe
+        if (cols.articleCol) row.push(meta.get(e.clave)?.articulo || null);
+
         values.push(...row);
         chunks.push(`(${row.map(() => `$${i++}`).join(',')})`);
       }
@@ -214,30 +215,7 @@ router.post('/evaluaciones', async (req, res) => {
       );
     }
 
-    // construir salida enriquecida
-    const incumplimientos = [];
-    const comentariosOut = [];
-
-    for (const e of entries) {
-      const m = meta.get(e.clave);
-      if (e.comentario) {
-        comentariosOut.push({
-          articulo: m?.articulo || null,
-          articulo_titulo: m?.articulo_titulo || null,
-          comentario: e.comentario,
-        });
-      }
-      if (e.valor !== 'true') {
-        const recomendacion =
-          e.valor === 'partial' ? 'Revisar y completar este control.' : 'Implementar este control.';
-        incumplimientos.push({
-          control: m?.pregunta || e.clave,
-          articulo: m?.articulo || null,
-          articulo_titulo: m?.articulo_titulo || null,
-          recomendacion,
-        });
-      }
-    }
+    const { incumplimientos, comentarios } = buildOutcome(meta, entries);
 
     await client.query('COMMIT');
 
@@ -251,7 +229,7 @@ router.post('/evaluaciones', async (req, res) => {
       cumplimiento: pct,
       nivel: level,
       incumplimientos,
-      comentarios: comentariosOut,
+      comentarios,
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch {}
@@ -262,7 +240,7 @@ router.post('/evaluaciones', async (req, res) => {
   }
 });
 
-/* --------------------------------- LIST ---------------------------------- */
+/* -------------------------------- LIST ----------------------------------- */
 
 router.get('/evaluaciones', async (_req, res) => {
   try {
@@ -272,12 +250,10 @@ router.get('/evaluaciones', async (_req, res) => {
     const sql = `
       WITH ans AS (
         SELECT evaluation_id,
-               SUM(CASE WHEN ${valueCol}='true' THEN 1
-                        WHEN ${valueCol}='partial' THEN 0.5
-                        ELSE 0 END) AS score,
+               SUM(CASE WHEN ${valueCol}='true' THEN 1 WHEN ${valueCol}='partial' THEN 0.5 ELSE 0 END) AS score,
                COUNT(*) AS total
-          FROM evaluation_answers
-         GROUP BY evaluation_id
+        FROM evaluation_answers
+        GROUP BY evaluation_id
       )
       SELECT e.id, e.company_name, e.normativa, e.started_at, e.due_at,
              COALESCE(ROUND((ans.score / NULLIF(ans.total,0)) * 100),0) AS pct,
@@ -287,10 +263,10 @@ router.get('/evaluaciones', async (_req, res) => {
                WHEN COALESCE((ans.score / NULLIF(ans.total,0)) * 100,0) >= 40 THEN 'Bajo'
                ELSE 'Crítico'
              END AS level
-        FROM evaluations e
-        LEFT JOIN ans ON ans.evaluation_id = e.id
-       ORDER BY e.started_at DESC
-       LIMIT 100;
+      FROM evaluations e
+      LEFT JOIN ans ON ans.evaluation_id = e.id
+      ORDER BY e.started_at DESC
+      LIMIT 100;
     `;
 
     const r = await query(sql, []);
@@ -311,7 +287,7 @@ router.get('/evaluaciones', async (_req, res) => {
   }
 });
 
-/* -------------------------------- DETALLE -------------------------------- */
+/* ------------------------------- DETALLE --------------------------------- */
 
 router.get('/evaluaciones/:id', async (req, res) => {
   try {
@@ -323,13 +299,11 @@ router.get('/evaluaciones/:id', async (req, res) => {
       `
       WITH ans AS (
         SELECT evaluation_id,
-               SUM(CASE WHEN ${valueCol}='true' THEN 1
-                        WHEN ${valueCol}='partial' THEN 0.5
-                        ELSE 0 END) AS score,
+               SUM(CASE WHEN ${valueCol}='true' THEN 1 WHEN ${valueCol}='partial' THEN 0.5 ELSE 0 END) AS score,
                COUNT(*) AS total
-          FROM evaluation_answers
-         WHERE evaluation_id = $1
-         GROUP BY evaluation_id
+        FROM evaluation_answers
+        WHERE evaluation_id = $1
+        GROUP BY evaluation_id
       )
       SELECT e.id, e.company_name, e.normativa, e.started_at, e.due_at,
              COALESCE(ROUND((ans.score / NULLIF(ans.total,0)) * 100),0) AS pct,
@@ -340,9 +314,9 @@ router.get('/evaluaciones/:id', async (req, res) => {
                ELSE 'Crítico'
              END AS level,
              e.status
-        FROM evaluations e
-        LEFT JOIN ans ON ans.evaluation_id = e.id
-       WHERE e.id = $1
+      FROM evaluations e
+      LEFT JOIN ans ON ans.evaluation_id = e.id
+      WHERE e.id = $1
       `,
       [id]
     );
@@ -374,6 +348,119 @@ router.get('/evaluaciones/:id', async (req, res) => {
   } catch (e) {
     console.error('GET /evaluaciones/:id ->', e);
     return res.status(500).json({ error: 'Error leyendo evaluación' });
+  }
+});
+
+/* ------------------------- PATCH: actualizar control ---------------------- */
+
+router.patch('/evaluaciones/:id/respuestas/:controlClave', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id, controlClave } = req.params;
+    const clave = decodeURIComponent(controlClave);
+    const body = req.body || {};
+    const valor = String(body.valor ?? body.value ?? '').trim();
+    const comentario = (body.comentario ?? body.comment ?? '').toString().trim();
+
+    const cols = await getAnswerColumns();
+
+    await client.query('BEGIN');
+
+    // Obtengo normativa y meta para resolver articulo si hace falta
+    const rEval = await client.query(`SELECT normativa FROM evaluations WHERE id=$1 LIMIT 1`, [id]);
+    const normativa = rEval.rowCount ? String(rEval.rows[0].normativa || '').toUpperCase() : '';
+    const meta = await fetchControlsMeta(normativa);
+
+    // ¿existe?
+    const exists = await client.query(
+      `SELECT 1 FROM evaluation_answers WHERE evaluation_id=$1 AND ${cols.controlKeyCol}=$2 LIMIT 1`,
+      [id, clave]
+    );
+
+    if (exists.rowCount) {
+      const sets = [`${cols.valueCol}=$3`];
+      const params = [id, clave, valor];
+      if (cols.commentCol) {
+        sets.push(`${cols.commentCol}=$${params.length + 1}`);
+        params.push(comentario || null);
+      }
+      if (cols.hasUpdatedAt) {
+        sets.push(`updated_at = NOW()`);
+      }
+      await client.query(
+        `UPDATE evaluation_answers
+           SET ${sets.join(', ')}
+         WHERE evaluation_id=$1 AND ${cols.controlKeyCol}=$2`,
+        params
+      );
+    } else {
+      const fields = ['evaluation_id', cols.controlKeyCol, cols.valueCol];
+      const params = [id, clave, valor];
+      if (cols.commentCol) {
+        fields.push(cols.commentCol);
+        params.push(comentario || null);
+      }
+      if (cols.articleCol) {
+        fields.push(cols.articleCol);
+        params.push(meta.get(clave)?.articulo || null);
+      }
+      const ph = params.map((_, i) => `$${i + 1}`).join(',');
+      await client.query(
+        `INSERT INTO evaluation_answers (${fields.join(',')}) VALUES (${ph})`,
+        params
+      );
+    }
+
+    // Recalcular pct/level
+    const rPct = await client.query(
+      `
+      WITH t AS (
+        SELECT
+          SUM(CASE WHEN ${cols.valueCol}='true' THEN 1
+                   WHEN ${cols.valueCol}='partial' THEN 0.5 ELSE 0 END) AS score,
+          COUNT(*) AS total
+        FROM evaluation_answers
+        WHERE evaluation_id=$1
+      )
+      SELECT COALESCE(ROUND((score/NULLIF(total,0))*100),0) AS pct
+      FROM t
+      `,
+      [id]
+    );
+    const pct = Number(rPct.rows[0]?.pct ?? 0);
+    let level = 'Crítico';
+    if (pct >= 80) level = 'Alto';
+    else if (pct >= 60) level = 'Medio';
+    else if (pct >= 40) level = 'Bajo';
+
+    // Todas las respuestas actuales
+    const rAnswers = await client.query(
+      `SELECT ${cols.controlKeyCol} AS clave,
+              ${cols.valueCol}   AS valor,
+              ${cols.commentCol ? `${cols.commentCol} AS comentario` : `'' AS comentario`}
+         FROM evaluation_answers
+        WHERE evaluation_id=$1
+        ORDER BY ${cols.controlKeyCol}`,
+      [id]
+    );
+
+    // Meta -> outcome enriquecido
+    const { incumplimientos, comentarios } = buildOutcome(meta, rAnswers.rows);
+
+    await client.query('COMMIT');
+    return res.json({
+      ok: true,
+      cumplimiento: pct,
+      nivel: level,
+      incumplimientos,
+      comentarios,
+    });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch {}
+    console.error('PATCH /evaluaciones/:id/respuestas/:controlClave ->', e);
+    return res.status(500).json({ error: 'No se pudo guardar' });
+  } finally {
+    client.release();
   }
 });
 
