@@ -10,20 +10,21 @@ const path = require('path');
 const auth = require('./middlewares/auth');
 const requireAdmin = require('./middlewares/requireAdmin');
 
-const authRoutes = require('./routes/authRoutes');
-const evaRoutes  = require('./routes/evaRoutes');
+// ---------- Rutas ----------
+const authRoutes           = require('./routes/authRoutes');
+const companyRoutes        = require('./routes/companyRoutes');          // /api/empresas
+const evaRoutes            = require('./routes/evaRoutes');              // controles (y lo que ya tenías)
+const evidenceRoutes       = require('./routes/evidenceRoutes');         // /api/evidencias
+const evaluationRoutes     = require('./routes/evaluationRoutes');       // /api/evaluaciones  ✅ SOLO UNA VEZ
 
 // Admin
-const adminRegRoutes        = require('./routes/adminRegRoutes');
-const adminUploadRoutes     = require('./routes/adminUploadRoutes');
-
-// Empresas
-const companyRoutes         = require('./routes/companyRoutes');          // ✅ solo /api/empresas
-const adminCompaniesRoutes  = require('./routes/adminCompaniesRoutes');   // ✅ /api/admin/empresas
+const adminRegRoutes       = require('./routes/adminRegRoutes');
+const adminUploadRoutes    = require('./routes/adminUploadRoutes');
+const adminCompaniesRoutes = require('./routes/adminCompaniesRoutes');
 
 const app = express();
 
-// Seguridad
+// ---------- Seguridad ----------
 app.use(
   helmet({
     contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
@@ -37,7 +38,7 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// CORS
+// ---------- CORS ----------
 const allowed = (process.env.CORS_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map(s => s.trim());
@@ -52,39 +53,36 @@ app.use(cors({
   credentials: true,
 }));
 
-// Parsers
+// ---------- Parsers ----------
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Health
+// ---------- Health ----------
 app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// Públicas
+// ---------- Públicas ----------
 app.use('/api/auth', authRoutes);
 
-// Privadas (evaluación)
-app.use('/api', auth, evaRoutes);
-
-// Empresas
-// - GET /api/empresas                     (auth; para el selector en Evaluación)
+// ---------- Orden de routers ----------
+// Empresas primero para no caer en otras rutas
 app.use('/api', companyRoutes);
 
-// Admin Empresas
-// - GET    /api/admin/empresas            (auth+admin)
-// - POST   /api/admin/empresas            (auth+admin)
-// - PATCH  /api/admin/empresas/:id/toggle (auth+admin)
+// Protegidas
+app.use('/api', auth, evaRoutes);           // controles, etc.
+app.use('/api', auth, evidenceRoutes);      // evidencias
+app.use('/api', auth, evaluationRoutes);    // evaluaciones  ✅ SOLO AQUÍ
+
+// Admin
 app.use('/api', adminCompaniesRoutes);
+app.use('/api/admin', adminRegRoutes);
+app.use('/api/admin', adminUploadRoutes);
 
 // Archivos subidos (solo dev)
 if (process.env.NODE_ENV !== 'production') {
   app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 }
 
-// Admin routers (regulaciones, importador PDF)
-app.use('/api/admin', adminRegRoutes);
-app.use('/api/admin', adminUploadRoutes);
-
-// Ping admin
+// Ping admin (protegida)
 app.get('/api/admin/ping', auth, requireAdmin, (req, res) => {
   res.json({ ok: true, user: req.user });
 });

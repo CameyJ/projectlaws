@@ -6,7 +6,6 @@ const fs = require('fs');
 const multer = require('multer');
 
 const auth = require('../middlewares/auth'); // requiere sesión
-// Si quieres que solo admin suba evidencias, añade requireAdmin aquí
 
 // Carpeta base para evidencias
 const BASE_DIR = path.join(__dirname, '..', 'uploads', 'evidencias');
@@ -53,8 +52,7 @@ router.post('/evidencias', auth, upload.array('files', 10), async (req, res) => 
       filename: f.filename,
       mimetype: f.mimetype,
       size: f.size,
-      // URL pública (en dev ya sirves /uploads estático)
-      url: `/uploads/evidencias/${normativa}/${clave}/${f.filename}`
+      url: `/uploads/evidencias/${normativa}/${clave}/${f.filename}` // URL pública (en dev)
     }));
 
     return res.json({ ok: true, normativa, clave, files });
