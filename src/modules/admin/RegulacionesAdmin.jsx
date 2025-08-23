@@ -1,6 +1,8 @@
+// src/modules/admin/RegulacionesAdmin.jsx
 import { useEffect, useState } from "react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const ENDPOINT = `${API}/api/admin/regulaciones`;
 
 function authHeaders() {
   const t = localStorage.getItem("token");
@@ -19,22 +21,30 @@ export default function RegulacionesAdmin() {
     source_url: "",
   });
 
+  const normalize = (r) => ({
+    id: r.id,
+    code: r.code ?? r.codigo ?? "",
+    name: r.name ?? r.nombre ?? "",
+    version: r.version ?? r.version_code ?? "",
+    is_active: Boolean(r.is_active ?? r.activo ?? false),
+    created_at: r.created_at ?? r.creada_en ?? r.creado_en ?? null,
+  });
+
   async function load() {
     setLoading(true);
     setErr("");
     try {
-      const res = await fetch(`${API}/api/admin/regulations`, {
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-      });
+      const res = await fetch(ENDPOINT, { headers: { ...authHeaders() } });
       if (!res.ok) {
         const j = await safeJson(res);
         throw new Error(j?.error || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      // el backend devuelve array plano; si usaste PowerShell antes, era objeto con "value"
-      setRegs(Array.isArray(data) ? data : data.value ?? []);
+      const list = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : []);
+      setRegs(list.map(normalize));
     } catch (e) {
       setErr(e.message || "Error cargando regulaciones");
+      setRegs([]);
     } finally {
       setLoading(false);
     }
@@ -52,10 +62,16 @@ export default function RegulacionesAdmin() {
       if (!form.code || !form.name) {
         throw new Error("Completa 'code' y 'name'");
       }
-      const res = await fetch(`${API}/api/admin/regulations`, {
+      // enviamos en inglés; tu backend usa estos nombres.
+      const res = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          code: form.code.trim(),
+          name: form.name.trim(),
+          version: form.version?.trim() || null,
+          source_url: form.source_url?.trim() || null,
+        }),
       });
       if (!res.ok) {
         const j = await safeJson(res);
@@ -152,9 +168,9 @@ export default function RegulacionesAdmin() {
             <tbody>
               {regs.map((r) => (
                 <tr key={r.id}>
-                  <td style={tdMono}>{r.code}</td>
-                  <td style={td}>{r.name}</td>
-                  <td style={td}>{r.version || "-"}</td>
+                  <td style={tdMono}>{r.code || "—"}</td>
+                  <td style={td}>{r.name || "—"}</td>
+                  <td style={td}>{r.version || "—"}</td>
                   <td style={td}>{r.is_active ? "Sí" : "No"}</td>
                   <td style={td}>{formatDate(r.created_at)}</td>
                 </tr>
@@ -176,7 +192,7 @@ async function safeJson(res) {
 }
 
 function formatDate(iso) {
-  if (!iso) return "-";
+  if (!iso) return "—";
   try { return new Date(iso).toLocaleString(); } catch { return iso; }
 }
 

@@ -5,55 +5,170 @@ const { v4: uuidv4 } = require('uuid');
 
 const router = express.Router();
 
-/* ------------------------- utilidades de esquema ------------------------- */
-
-// cache simple para no consultar information_schema en cada request
-let cachedCols = null;
+/* ------------------------------------------------------------------ */
+/* utilidades: columnas en evaluation_answers                          */
+/* ------------------------------------------------------------------ */
+let cachedAnswerCols = null;
 
 async function getAnswerColumns() {
-  if (cachedCols) return cachedCols;
+  if (cachedAnswerCols) return cachedAnswerCols;
 
   const r = await query(`
-    SELECT column_name, is_nullable
+    SELECT column_name
     FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'evaluation_answers'
+    WHERE table_schema='public' AND table_name='evaluation_answers'
   `);
 
   const names = new Set(r.rows.map(x => x.column_name));
 
-  // Prioridad para la columna de valor: respuesta > valor > value
+  // valor/respuesta/value
   let valueCol = null;
   if (names.has('respuesta')) valueCol = 'respuesta';
   else if (names.has('valor')) valueCol = 'valor';
   else if (names.has('value')) valueCol = 'value';
 
-  // Clave del control: control_clave > control_key
+  // clave/control_key
   let controlKeyCol = null;
   if (names.has('control_clave')) controlKeyCol = 'control_clave';
   else if (names.has('control_key')) controlKeyCol = 'control_key';
 
-  // Comentario (opcional)
+  // comentario/comment
   let commentCol = null;
   if (names.has('comentario')) commentCol = 'comentario';
   else if (names.has('comment')) commentCol = 'comment';
 
-  // Artículo (opcional)
+  // articulo/article
   let articleCol = null;
   if (names.has('articulo')) articleCol = 'articulo';
   else if (names.has('article')) articleCol = 'article';
 
   if (!controlKeyCol || !valueCol) {
     throw new Error(
-      'La tabla evaluation_answers debe tener columnas para clave de control y valor: (control_clave/control_key) y (respuesta/valor/value).'
+      'La tabla evaluation_answers debe tener (control_clave/control_key) y (respuesta/valor/value).'
     );
   }
 
-  cachedCols = { controlKeyCol, valueCol, commentCol, articleCol };
-  return cachedCols;
+  cachedAnswerCols = { controlKeyCol, valueCol, commentCol, articleCol };
+  return cachedAnswerCols;
 }
 
-// calcula % y nivel en memoria (para responder el POST)
+/* ------------------------------------------------------------------ */
+/* utilidades: detección de tabla y columnas de controles              */
+/* ------------------------------------------------------------------ */
+let cachedControlsMeta = null;
+
+async function tableExists(name) {
+  const r = await query(
+    `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1 LIMIT 1`,
+    [name]
+  );
+  return r.rowCount > 0;
+}
+
+async function getControlsIntrospection() {
+  if (cachedControlsMeta) return cachedControlsMeta;
+
+  // ¿controles o controls?
+  let table = null;
+  if (await tableExists('controles')) table = 'controles';
+  else if (await tableExists('controls')) table = 'controls';
+  else {
+    cachedControlsMeta = { table: null };
+    return cachedControlsMeta;
+  }
+
+  const colsQ = await query(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1`,
+    [table]
+  );
+  const cols = new Set(colsQ.rows.map(x => x.column_name));
+
+  // equivalencias de nombres
+  const claveCol =
+    (cols.has('clave') && 'clave') ||
+    (cols.has('key') && 'key') ||
+    (cols.has('code') && 'code') ||
+    null;
+
+  const preguntaCol =
+    (cols.has('pregunta') && 'pregunta') ||
+    (cols.has('question') && 'question') ||
+    (cols.has('title') && 'title') ||
+    (cols.has('body') && 'body') ||
+    null;
+
+  const articuloCol =
+    (cols.has('articulo') && 'articulo') ||
+    (cols.has('article') && 'article') ||
+    null;
+
+  const recomendacionCol =
+    (cols.has('recomendacion') && 'recomendacion') ||
+    (cols.has('recommendation') && 'recommendation') ||
+    null;
+
+  const normativaCol =
+    (cols.has('normativa') && 'normativa') ||
+    (cols.has('framework_code') && 'framework_code') ||
+    (cols.has('code') && 'code') ||
+    null;
+
+  cachedControlsMeta = {
+    table,
+    claveCol,
+    preguntaCol,
+    articuloCol,
+    recomendacionCol,
+    normativaCol,
+  };
+  return cachedControlsMeta;
+}
+
+/**
+ * Trae metadatos de controles para una normativa dada.
+ * Devuelve [{clave,pregunta,articulo,recomendacion}]
+ * Si no puede, devuelve [] sin romper el flujo.
+ */
+async function fetchControlsMeta(normativa) {
+  try {
+    const meta = await getControlsIntrospection();
+    if (!meta.table || !meta.claveCol) return [];
+
+    const { table, claveCol, preguntaCol, articuloCol, recomendacionCol, normativaCol } = meta;
+
+    const fields = [
+      `${claveCol} AS clave`,
+      preguntaCol ? `${preguntaCol} AS pregunta` : `NULL::text AS pregunta`,
+      articuloCol ? `${articuloCol} AS articulo` : `NULL::text AS articulo`,
+      recomendacionCol ? `${recomendacionCol} AS recomendacion` : `NULL::text AS recomendacion`,
+    ].join(', ');
+
+    let sql = `SELECT ${fields} FROM ${table}`;
+    const params = [];
+
+    if (normativaCol) {
+      sql += ` WHERE UPPER(${normativaCol}) = $1`;
+      params.push(String(normativa).toUpperCase());
+    }
+
+    sql += ` ORDER BY ${claveCol}`;
+
+    const r = await query(sql, params);
+    return r.rows.map(x => ({
+      clave: x.clave,
+      pregunta: x.pregunta || '',
+      articulo: x.articulo || null,
+      recomendacion: x.recomendacion || 'Implementar este control.',
+    }));
+  } catch (e) {
+    console.warn('fetchControlsMeta fallback ->', e.message || e);
+    return [];
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* cálculo % y nivel en memoria                                       */
+/* ------------------------------------------------------------------ */
 function calcPctAndLevel(respuestas) {
   const keys = Object.keys(respuestas || {});
   if (!keys.length) return { pct: 0, level: 'Básico' };
@@ -80,8 +195,9 @@ function calcPctAndLevel(respuestas) {
   return { pct, level };
 }
 
-/* ------------------------------- POST crear ------------------------------ */
-
+/* ================================================================== */
+/* POST /evaluaciones                                                 */
+/* ================================================================== */
 router.post('/evaluaciones', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -91,27 +207,28 @@ router.post('/evaluaciones', async (req, res) => {
     }
 
     const norm = String(normativa).toUpperCase();
-    const cols = await getAnswerColumns();
+    const ansCols = await getAnswerColumns();
 
     // normalizar respuestas
     const entries = Object.entries(respuestas || {})
       .map(([k, obj]) => {
         const clave = String(k || obj?.clave || obj?.key || '').trim();
-        const valor = String(
-          obj?.valor ?? obj?.respuesta ?? obj?.value ?? ''
-        ).trim();
+        const valor = String(obj?.valor ?? obj?.respuesta ?? obj?.value ?? '').trim();
         const comentario = String(obj?.comentario ?? obj?.comment ?? '').trim();
         const articulo = obj?.articulo ?? obj?.article ?? null;
         return { clave, valor, comentario, articulo };
       })
-      .filter(x => x.clave); // evita control_clave nulo
+      .filter(x => x.clave);
+
+    // mapa rápido por clave
+    const byClave = new Map(entries.map(e => [e.clave, e]));
 
     const { pct, level } = calcPctAndLevel(respuestas);
     const id = uuidv4();
 
     await client.query('BEGIN');
 
-    // evaluations (en español)
+    // evaluations (español)
     const insEval = await client.query(
       `INSERT INTO evaluations (id, company_id, company_name, normativa, started_at, due_at, status)
        VALUES ($1, $2, $3, $4, NOW(), NOW() + INTERVAL '7 day', 'open')
@@ -121,32 +238,50 @@ router.post('/evaluaciones', async (req, res) => {
 
     // evaluation_answers
     if (entries.length) {
-      const fields = ['evaluation_id', cols.controlKeyCol, cols.valueCol];
+      const fields = ['evaluation_id', ansCols.controlKeyCol, ansCols.valueCol];
+      if (ansCols.commentCol) fields.push(ansCols.commentCol);
+      if (ansCols.articleCol) fields.push(ansCols.articleCol);
+
       const chunks = [];
       const values = [];
       let i = 1;
 
-      const pushRow = (e) => {
-        const row = [id, e.clave, e.valor];         // siempre id/clave/valor(respuesta)
-        if (cols.commentCol) row.push(e.comentario || null);
-        if (cols.articleCol) row.push(e.articulo || null);
+      for (const e of entries) {
+        const row = [id, e.clave, e.valor];
+        if (ansCols.commentCol) row.push(e.comentario || null);
+        if (ansCols.articleCol) row.push(e.articulo || null);
+
         values.push(...row);
         const placeholders = row.map(() => `$${i++}`).join(',');
         chunks.push(`(${placeholders})`);
-      };
+      }
 
-      // agregar nombres opcionales a la lista de columnas
-      if (cols.commentCol) fields.push(cols.commentCol);
-      if (cols.articleCol) fields.push(cols.articleCol);
-
-      for (const e of entries) pushRow(e);
-
-      const sql = `
-        INSERT INTO evaluation_answers (${fields.join(', ')})
-        VALUES ${chunks.join(', ')}
-      `;
+      const sql = `INSERT INTO evaluation_answers (${fields.join(', ')}) VALUES ${chunks.join(', ')}`;
       await client.query(sql, values);
     }
+
+    // construir incumplimientos y comentarios (no romper si no hay tabla)
+    const controlsMeta = await fetchControlsMeta(norm); // []
+    const incumplimientos = controlsMeta
+      .filter(c => {
+        const ans = byClave.get(c.clave);
+        return !ans || ans.valor !== 'true'; // todo lo que NO sea "true"
+      })
+      .map(c => ({
+        control: c.pregunta || c.clave,
+        recomendacion: c.recomendacion || 'Implementar este control.',
+        articulo: c.articulo || null,
+      }));
+
+    const comentariosOut = entries
+      .filter(e => (e.comentario || '').trim().length > 0)
+      .map(e => {
+        const cMeta = controlsMeta.find(c => c.clave === e.clave);
+        return {
+          articulo: cMeta?.articulo || e.articulo || null,
+          comentario: e.comentario.trim(),
+        };
+      });
 
     await client.query('COMMIT');
 
@@ -159,7 +294,8 @@ router.post('/evaluaciones', async (req, res) => {
       due_at: row.due_at,
       cumplimiento: pct,
       nivel: level,
-      incumplimientos: []
+      incumplimientos,
+      comentarios: comentariosOut,
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch {}
@@ -170,12 +306,13 @@ router.post('/evaluaciones', async (req, res) => {
   }
 });
 
-/* ------------------------------ GET listado ------------------------------ */
-
+/* ================================================================== */
+/* GET /evaluaciones (listado)                                        */
+/* ================================================================== */
 router.get('/evaluaciones', async (_req, res) => {
   try {
     const cols = await getAnswerColumns();
-    const valueCol = cols.valueCol; // respuesta | valor | value
+    const valueCol = cols.valueCol;
 
     const sql = `
       WITH ans AS (
@@ -225,8 +362,9 @@ router.get('/evaluaciones', async (_req, res) => {
   }
 });
 
-/* ------------------------------- GET detalle ------------------------------ */
-
+/* ================================================================== */
+/* GET /evaluaciones/:id (detalle)                                    */
+/* ================================================================== */
 router.get('/evaluaciones/:id', async (req, res) => {
   try {
     const { id } = req.params;

@@ -237,10 +237,25 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
         ? data.missing
         : [];
 
+      // Comentarios: usar los del backend si vienen, de lo contrario formarlos desde lo escrito
+      const comentariosResp = Array.isArray(data.comentarios)
+        ? data.comentarios
+        : controles
+            .map((c) => {
+              const txt = (comentarios[c.clave] || "").trim();
+              if (!txt) return null;
+              return {
+                articulo: c.articulo ?? c.article ?? null,
+                comentario: txt,
+              };
+            })
+            .filter(Boolean);
+
       setResultado({
         cumplimiento,
         nivel,
         incumplimientos,
+        comentarios: comentariosResp,
         started_at: data.started_at ?? data.startedAt ?? null,
         due_at: data.due_at ?? data.dueAt ?? null,
         normativa: data.normativa ?? data.normative ?? payload.normativa,
@@ -522,18 +537,29 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
               </>
             )}
 
+            {Array.isArray(resultado.comentarios) && resultado.comentarios.length > 0 && (
+              <>
+                <h4 style={{ marginTop: 16 }}>Comentarios agregados:</h4>
+                <ul style={{ paddingLeft: "1.2rem" }}>
+                  {resultado.comentarios.map((c, i) => (
+                    <li key={i} style={{ marginBottom: 6 }}>
+                      {c.articulo ? <strong>Art. {c.articulo}:</strong> : null} <em>{c.comentario}</em>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
             {(resultado.started_at || resultado.due_at) && (
               <div style={{ marginTop: 12, fontSize: 13 }}>
                 {resultado.started_at && (
                   <div>
-                    <strong>Fecha inicio:</strong>{" "}
-                    {new Date(resultado.started_at).toLocaleString()}
+                    <strong>Fecha inicio:</strong> {new Date(resultado.started_at).toLocaleString()}
                   </div>
                 )}
                 {resultado.due_at && (
                   <div>
-                    <strong>Fecha límite:</strong>{" "}
-                    {new Date(resultado.due_at).toLocaleString()}
+                    <strong>Fecha límite:</strong> {new Date(resultado.due_at).toLocaleString()}
                   </div>
                 )}
               </div>
