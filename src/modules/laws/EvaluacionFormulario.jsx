@@ -14,9 +14,10 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
   const [compErr, setCompErr]       = useState("");
 
   // Controles / Evaluación
-  const [controles, setControles]   = useState([]);
-  const [respuestas, setRespuestas] = useState({});
-  const [resultado, setResultado]   = useState(null);
+  const [controles, setControles]     = useState([]);
+  const [respuestas, setRespuestas]   = useState({});
+  const [comentarios, setComentarios] = useState({}); // 👈 comentarios por control
+  const [resultado, setResultado]     = useState(null);
 
   // Evidencias por control
   const [evidencias, setEvidencias] = useState({}); // { [clave]: { filesToSend: File[], uploaded: [{filename,url}], uploading: bool, err?: string } }
@@ -53,16 +54,13 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
         // Si falla, probamos con la de admin
         if (!r.ok) {
-          // Guardamos texto por si necesitamos mostrarlo
           const firstErr = await r.text().catch(() => "");
           console.warn("GET /api/empresas falló:", r.status, firstErr);
 
           r = await fetch(`${API}/api/admin/empresas`, { headers: { ...h } });
           if (!r.ok) {
             const secondErr = await r.text().catch(() => "");
-            throw new Error(
-              `No se pudieron cargar empresas. HTTP ${r.status} ${secondErr}`
-            );
+            throw new Error(`No se pudieron cargar empresas. HTTP ${r.status} ${secondErr}`);
           }
         }
 
@@ -89,6 +87,7 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       try {
         setControles([]);
         setRespuestas({});
+        setComentarios({}); // 👈 reiniciar comentarios
         setResultado(null);
         setEvidencias({});
 
@@ -106,24 +105,32 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
         const arr = Array.isArray(data) ? data : [];
         setControles(arr);
 
-        const inicial = {};
+        const inicialResp = {};
+        const inicialCom  = {};
         const ev = {};
         arr.forEach((c) => {
-          inicial[c.clave] = '';
+          inicialResp[c.clave] = '';
+          inicialCom[c.clave]  = '';
           ev[c.clave] = { filesToSend: [], uploaded: [], uploading: false, err: '' };
         });
-        setRespuestas(inicial);
+        setRespuestas(inicialResp);
+        setComentarios(inicialCom);
         setEvidencias(ev);
       } catch (e) {
         console.error('Error cargando controles:', e);
         setControles([]);
         setRespuestas({});
+        setComentarios({});
       }
     })();
   }, [normativaSeleccionada]);
 
   const handleRespuesta = (clave, valor) => {
     setRespuestas((prev) => ({ ...prev, [clave]: valor }));
+  };
+
+  const handleComentario = (clave, valor) => {
+    setComentarios((prev) => ({ ...prev, [clave]: valor }));
   };
 
   const onPickFiles = (clave, fileList) => {
@@ -188,7 +195,8 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
       empresa: selectedCompanyName || "",
       company_id: companyId || null,
       normativa: normativaSeleccionada,
-      respuestas
+      respuestas,
+      comentarios, // 👈 enviar comentarios al backend
     };
 
     try {
@@ -260,6 +268,11 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
 
   const showEvidenceBlock = (valor) => valor === 'true' || valor === 'partial';
 
+  // Para mostrar comentarios no vacíos en la tarjeta de resultado
+  const comentariosNoVacios = controles
+    .filter(c => (comentarios[c.clave] || '').trim().length > 0)
+    .map(c => ({ clave: c.clave, pregunta: c.pregunta, comentario: comentarios[c.clave].trim() }));
+
   return (
     <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
       {/* FORMULARIO */}
@@ -291,6 +304,8 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
             return (
               <div key={control.clave} style={{ marginBottom: 22 }}>
                 <p style={{ marginBottom: 8 }}><strong>{control.pregunta}</strong></p>
+
+                {/* Botones de respuesta */}
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
@@ -321,7 +336,28 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
                   >❌ No</button>
                 </div>
 
-                {/* Evidencia */}
+                {/* Comentario por control */}
+                <div style={{ marginTop: 10 }}>
+                  <label style={{ fontSize: 14, color: '#333', display: 'block', marginBottom: 6 }}>
+                    Comentario (opcional)
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Agrega un comentario o contexto sobre esta respuesta…"
+                    value={comentarios[control.clave] || ''}
+                    onChange={(e) => handleComentario(control.clave, e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: 10,
+                      borderRadius: 8,
+                      border: '1px solid #ccd6e0',
+                      outline: 'none',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                {/* Evidencia (solo para Sí o Parcial) */}
                 {showEvidenceBlock(val) && (
                   <div
                     style={{
@@ -433,6 +469,23 @@ function EvaluacionFormulario({ normativaSeleccionada }) {
                   {resultado.incumplimientos.map((item, i) => (
                     <li key={i} style={{ marginBottom: 6 }}>
                       <strong>{item.control}</strong> — {item.recomendacion} {item.articulo ? <em>({item.articulo})</em> : null}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            {/* Comentarios agregados */}
+            {comentariosNoVacios.length > 0 && (
+              <>
+                <h4 style={{ marginTop: 18 }}>Comentarios agregados</h4>
+                <ul style={{ paddingLeft: '1.2rem' }}>
+                  {comentariosNoVacios.map((c, idx) => (
+                    <li key={idx} style={{ marginBottom: 6 }}>
+                      <strong>{c.clave}:</strong> {c.pregunta}
+                      <div style={{ marginTop: 4, fontStyle: 'italic' }}>
+                        {c.comentario}
+                      </div>
                     </li>
                   ))}
                 </ul>
