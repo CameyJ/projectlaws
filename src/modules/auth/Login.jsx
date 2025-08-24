@@ -6,16 +6,11 @@ import { useNavigate } from "react-router-dom";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-/** Decodifica el payload de un JWT (Base64URL) sin verificar firma.
- *  Solo para leer datos (id, email, role, etc.) cuando el backend no retorna `user`.
- */
 function decodeJwt(token) {
   try {
     const payload = token.split(".")[1];
     if (!payload) return null;
-    // Base64URL -> Base64
     const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    // Decodifica a string
     const jsonStr = atob(b64);
     return JSON.parse(jsonStr);
   } catch {
@@ -49,29 +44,19 @@ const Login = () => {
       });
 
       let data = {};
-      try {
-        data = await res.json();
-      } catch {
-        // Si el back devolviera HTML en 500, evitamos romper el flujo
-      }
+      try { data = await res.json(); } catch {}
 
       if (!res.ok) {
         const message =
           data?.error ||
-          (res.status === 401
-            ? "Usuario o contraseña incorrectos"
-            : "No se pudo iniciar sesión");
+          (res.status === 401 ? "Usuario o contraseña incorrectos" : "No se pudo iniciar sesión");
         throw new Error(message);
       }
 
-      if (!data?.token) {
-        throw new Error("Respuesta inválida del servidor (falta token)");
-      }
+      if (!data?.token) throw new Error("Respuesta inválida del servidor (falta token)");
 
-      // Guarda token
       localStorage.setItem("token", data.token);
 
-      // Usa `user` del back si viene; de lo contrario intenta inferirlo del token
       let user = data.user ?? null;
       if (!user) {
         const payload = decodeJwt(data.token);
@@ -84,10 +69,7 @@ const Login = () => {
           };
         }
       }
-
-      if (user) {
-        localStorage.setItem("user", JSON.stringify(user));
-      }
+      if (user) localStorage.setItem("user", JSON.stringify(user));
 
       setMsg("Login exitoso. Redirigiendo…");
       setTimeout(() => navigate("/home"), 800);
@@ -100,43 +82,49 @@ const Login = () => {
 
   return (
     <div className="login-container">
-      <div className="login-box">
-        <img src={logo} alt="Logo" className="login-logo" />
-        <h2>Iniciar sesión</h2>
+      {/* Columna izquierda: tarjeta centrada vertical y horizontalmente */}
+      <div className="login-left">
+        <div className="login-box">
+          <img src={logo} alt="Logo" className="login-logo" />
+          <h2>Iniciar sesión</h2>
 
-        <form onSubmit={handleSubmit} noValidate>
-          <label htmlFor="email">Correo electrónico</label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={loading}
-          />
+          <form onSubmit={handleSubmit} noValidate>
+            <label htmlFor="email">Correo electrónico</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={loading}
+            />
 
-          <label htmlFor="password">Contraseña</label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={loading}
-          />
+            <label htmlFor="password">Contraseña</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+            />
 
-          <button type="submit" disabled={loading}>
-            {loading ? "Ingresando..." : "Ingresar"}
-          </button>
-        </form>
+            <button type="submit" disabled={loading}>
+              {loading ? "Ingresando..." : "Ingresar"}
+            </button>
+          </form>
 
-        {msg && <div className="login-error">{msg}</div>}
+          {msg && <div className="login-error">{msg}</div>}
+        </div>
       </div>
 
-      <div className="login-illustration">
-        <img src={rocketImg} alt="Rocket" />
+      {/* Columna derecha: ilustración grande centrada */}
+      <div className="login-right">
+        <div className="login-illustration">
+          <img src={rocketImg} alt="Rocket" />
+        </div>
       </div>
     </div>
   );

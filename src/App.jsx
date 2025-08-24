@@ -5,7 +5,7 @@ import Login from "./modules/auth/Login";
 import Home from "./modules/home/Home";
 import Laws from "./modules/laws/Laws";
 import Results from "./modules/results/Results";
-import ResultDetail from "./modules/results/ResultDetail"; // ⬅️ NUEVO
+import ResultDetail from "./modules/results/ResultDetail";
 
 import PrivateRoute from "./components/PrivateRoute";
 import AdminRoute from "./components/AdminRoute";
@@ -20,9 +20,15 @@ import AdminControlBuilder from "./modules/admin/AdminControlBuilder";
 import AdminPdfImporter from "./modules/admin/AdminPdfImporter";
 import AdminCompanies from "./modules/admin/AdminCompanies";
 
+// >>> NUEVO
+import ToastHost from "./components/ToastHost";
+
 export default function App() {
   return (
     <BrowserRouter>
+      {/* Host global de notificaciones (solo visual) */}
+      <ToastHost />
+
       <Routes>
         {/* Pública */}
         <Route path="/login" element={<Login />} />
@@ -33,7 +39,7 @@ export default function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/laws" element={<Laws />} />
             <Route path="/results" element={<Results />} />
-            <Route path="/results/:id" element={<ResultDetail />} /> {/* ⬅️ NUEVA RUTA */}
+            <Route path="/results/:id" element={<ResultDetail />} />
 
             {/* Solo Admin */}
             <Route element={<AdminRoute />}>

@@ -1,184 +1,174 @@
-.login-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  width: 100vw;
-  background: radial-gradient(circle at 75% 60%, #3e137b 45%, #1a0737 100%);
-  /* Puedes ajustar el fondo gradiente si prefieres otro efecto */
+:root{
+  --bg-gradient: radial-gradient(circle at 70% 50%, #3e137b 40%, #1a0737 100%);
+}
+
+/* Fondo y anti‑bordes blancos con zoom */
+html, body{
+  height: 100%;
   margin: 0;
   padding: 0;
+  background: #1a0737;
+  overflow-x: hidden;
+}
+body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg-gradient);
 }
 
-.login-box {
-  background: #fff;
-  border-radius: 22px;
-  box-shadow: 0 8px 32px #0002;
-  padding: 2.8rem 2.2rem;
-  width: 340px;
-  min-height: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  z-index: 2;
-}
-
-
-.login-logo {
-  width: 200px;       
-  height: auto;
-  display: block;
-  background: transparent !important;
-  padding: 0;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-
-h2 {
-  color: #a446f8;
-  font-size: 2rem;
-  margin-bottom: 1.2rem;
-  font-weight: bold;
-  align-self: flex-start;
-}
-
-form {
+/* ===== LAYOUT 50/50 SIEMPRE ===== */
+.login-container{
+  min-height: 100dvh;
   width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;     /* mitad / mitad */
+  align-items: center;                /* centra verticalmente cada mitad */
+  justify-items: center;              /* centra horizontalmente lo que hay dentro de cada mitad */
+  gap: clamp(20px, 4vw, 72px);
+  padding: clamp(12px, 2.5vw, 32px);
+  box-sizing: border-box;
 }
 
-label {
-  display: block;
-  margin-bottom: 4px;
-  color: #232c3d;
-  font-weight: 500;
-  font-size: 1rem;
+.login-left,
+.login-right{
+  width: 100%;
+  display: grid;
+  place-items: center;                /* centrar contenido en su 50% */
+}
+
+/* ===== TARJETA (escala proporcional con límites) ===== */
+.login-box{
+  width: clamp(340px, 32vw, 520px);   /* relativo al viewport con mínimo y máximo */
+  background:#fff;
+  border-radius:22px;
+  box-shadow:0 12px 36px #00000026;
+  padding: clamp(20px, 2.2vw, 40px) clamp(16px, 2vw, 36px);
+  display:flex;
+  flex-direction:column;
+  box-sizing: border-box;
+}
+
+.login-logo{
+  width: clamp(120px, 10vw, 200px);
+  height:auto;
+  display:block;
+  margin:0 auto .3rem auto;
+  background:transparent !important;
+}
+
+h2{
+  color:#a446f8;
+  font-size: clamp(1.2rem, 2.2vw, 2rem);
+  margin:.6rem 0 1.1rem 0;
+  font-weight:800;
+}
+
+form{ width:100%; }
+
+label{
+  display:block;
+  margin-bottom:6px;
+  color:#232c3d;
+  font-weight:600;
+  font-size: clamp(.9rem, 1.2vw, .98rem);
 }
 
 input[type="email"],
-input[type="password"] {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  border: 1.2px solid #dedede;
-  margin-bottom: 16px;
-  font-size: 1.1rem;
-  background: #f8fafb;
-  transition: border 0.18s;
+input[type="password"]{
+  width:100%;
+  padding: clamp(10px, 1.1vw, 12px) clamp(12px, 1.2vw, 14px);
+  border-radius:10px;
+  border:1.4px solid #e7e7ea;
+  margin-bottom: clamp(14px, 1.4vw, 18px);
+  font-size: clamp(.95rem, 1.1vw, 1.05rem);
+  background:#f8fafb;
+  transition:border .18s, box-shadow .18s;
+  box-sizing:border-box;
 }
 input[type="email"]:focus,
-input[type="password"]:focus {
-  border-color: #8a3ffc;
-  outline: none;
+input[type="password"]:focus{
+  border-color:#8a3ffc;
+  outline:none;
+  box-shadow:0 0 0 3px #8a3ffc1a;
 }
 
-button[type="submit"] {
-  background: #ff7a2f;
-  color: #fff;
-  font-size: 1.2rem;
-  border: none;
-  border-radius: 9px;
-  padding: 13px 0;
-  width: 100%;
-  margin-top: 8px;
-  font-weight: bold;
-  letter-spacing: .5px;
-  transition: background 0.18s, box-shadow 0.18s;
-  cursor: pointer;
-  box-shadow: 0 2px 8px #0001;
+button[type="submit"]{
+  background:#ff7a2f;
+  color:#fff;
+  font-size: clamp(1rem, 1.2vw, 1.15rem);
+  border:none;
+  border-radius:10px;
+  padding: clamp(12px, 1.2vw, 14px) 0;
+  width:100%;
+  margin-top:6px;
+  font-weight:800;
+  letter-spacing:.3px;
+  transition:background .18s, box-shadow .18s, transform .05s;
+  cursor:pointer;
+  box-shadow:0 6px 16px #ff7a2f33;
 }
 button[type="submit"]:hover,
-button[type="submit"]:focus {
-  background: #f95e14;
+button[type="submit"]:focus{
+  background:#f95e14;
+  box-shadow:0 10px 22px #f95e1440;
+}
+button[type="submit"]:active{ transform: translateY(1px); }
+
+.login-error{
+  color:#e01a1a;
+  margin-top:1.1rem;
+  font-weight:600;
+  font-size: clamp(.9rem, 1.1vw, 1rem);
 }
 
-.login-error {
-  color: #e01a1a;
-  margin-top: 1.3rem;
-  font-weight: 500;
-  font-size: 1.05rem;
+/* ===== ILUSTRACIÓN (escala proporcional con límites) ===== */
+.login-illustration{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.login-illustration img{
+  width: clamp(300px, 42vw, 780px);   /* relativo al viewport con mínimo y máximo */
+  height:auto;
+  max-width: 100%;
+  animation: floatRocket 3s ease-in-out infinite alternate;
+  filter: drop-shadow(0 18px 24px #2d00b144);
 }
 
-.login-illustration {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 290px;
-  /* No uses flex:1 aquí para mantener proporciones */
-  z-index: 1;
+@keyframes floatRocket{
+  0%   { transform: translateY(0) scale(1); }
+  60%  { transform: translateY(-22px) scale(1.03); }
+  100% { transform: translateY(-12px) scale(1.01); }
 }
 
-.login-illustration img {
-  width: 300px;         /* Tamaño ideal para escritorio */
-  max-width: 340px;
-  min-width: 180px;
-  height: auto;
-  animation: floatRocket 2.8s ease-in-out infinite alternate;
-  /* Puedes añadir un margin-top si quieres bajarlo un poco: */
-  margin-top: 30px;
-}
-
-
-/* Animación de flotación del cohete */
-@keyframes floatRocket {
-  0% {
-    transform: translateY(0) scale(1);
-    filter: drop-shadow(0 8px 16px #0003);
-  }
-  60% {
-    transform: translateY(-18px) scale(1.03);
-    filter: drop-shadow(0 22px 18px #2d00b13a);
-  }
-  100% {
-    transform: translateY(-11px) scale(1.01);
-    filter: drop-shadow(0 12px 14px #1a073744);
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px){
+  .login-container{
+    grid-template-columns: 1fr;       /* apila en móvil/tablet estrecho */
+    gap: 24px;
   }
 }
 
-/* Responsive para pantallas medianas/pequeñas */
-@media (max-width: 900px) {
-  .login-container {
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-  }
-  .login-box {
-    border-radius: 22px 22px 0 0;
-    width: 90vw;
-    min-height: 340px;
-    margin-bottom: 0;
-  }
-  .login-illustration {
-    padding: 1.5rem 0;
-    width: 100vw;
-    justify-content: center;
-  }
-  .login-illustration img {
-    width: 70vw;
-    max-width: 220px;
-  }
+
+
+/* === Fondo propio solo para la pantalla de Login === */
+.login-container{
+  position: relative;
+  isolation: isolate;        /* crea un contexto para colocar el fondo detrás */
+  min-height: 100dvh;
+  width: 100%;
+  background: transparent !important; /* evita que el fondo del contenedor tape el gradiente */
+  overflow: hidden;
 }
 
-@media (max-width: 500px) {
-  .login-container {
-    padding: 0;
-    min-height: 100vh;
-  }
-  .login-box {
-    padding: 1.6rem 0.7rem;
-    border-radius: 0;
-    width: 99vw;
-  }
-  .login-logo {
-    width: 110px;
-    padding: 8px;
-  }
-  h2 {
-    font-size: 1.15rem;
-  }
-  .login-illustration img {
-    width: 80vw;
-    max-width: 130px;
-  }
+/* Capa de gradiente detrás del contenido del login */
+.login-container::before{
+  content: "";
+  position: absolute;        /* cubre toda la vista de login */
+  inset: 0;
+  z-index: -1;               /* detrás de la tarjeta y la ilustración */
+  background: radial-gradient(circle at 70% 50%, #3e137b 40%, #1a0737 100%);
 }

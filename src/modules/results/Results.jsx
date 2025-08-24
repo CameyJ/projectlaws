@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authHeader } from "../../utils/authHeader";
+import "./Results.css"; // <-- estilos SOLO de esta pantalla
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -38,125 +39,119 @@ export default function Results() {
   }, []);
 
   const openDetail = (id) => {
-    // Antes: alert(`Abrir evaluación ${id} (TODO)`)
     navigate(`/results/${id}`);
   };
 
+  const pct = (it) =>
+    typeof it.pct === "number" ? `${Math.round(it.pct)}%` : "—";
+
+  const levelClass = (lvl) => {
+    const v = String(lvl || "").toLowerCase();
+    if (v.includes("alto")) return "badge green";
+    if (v.includes("medio")) return "badge amber";
+    if (v.includes("bajo")) return "badge orange";
+    return "badge red"; // crítico u otros
+  };
+
   return (
-    <div className="page-container">
-      <h1>Resultados</h1>
-      <p>Visualiza los resultados de tus evaluaciones aquí.</p>
-
-      {err && (
-        <div
-          style={{
-            background: "#fdecea",
-            color: "#b71c1c",
-            padding: "10px 12px",
-            borderRadius: 8,
-            marginBottom: 12,
-          }}
-        >
-          <strong>Error:</strong> {err}
+    <div className="res-page">
+      {/* Cabecera visual siguiendo el Home */}
+      <section className="res-hero">
+        <div className="res-hero-inner">
+          <span className="res-pill">Panel</span>
+          <h1 className="res-title">Resultados</h1>
+          <p className="res-sub">
+            Visualiza los resultados de tus evaluaciones aquí.
+          </p>
         </div>
-      )}
+      </section>
 
-      <div
-        style={{
-          background: "white",
-          borderRadius: 12,
-          boxShadow: "0 2px 10px rgba(0,0,0,.06)",
-          overflow: "hidden",
-          maxWidth: 780,
-        }}
-      >
-        <div
-          style={{
-            padding: 16,
-            borderBottom: "1px solid #eee",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <h3 style={{ margin: 0 }}>Evaluaciones</h3>
-          <button
-            onClick={fetchList}
-            disabled={busy}
-            style={{
-              padding: "8px 14px",
-              borderRadius: 8,
-              border: "1px solid #ddd",
-              background: busy ? "#f3f3f3" : "white",
-              cursor: busy ? "default" : "pointer",
-            }}
-          >
-            {busy ? "Actualizando…" : "Actualizar"}
-          </button>
-        </div>
+      <main className="res-main">
+        {err && (
+          <div className="res-alert">
+            <strong>Error:</strong> {err}
+          </div>
+        )}
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead style={{ background: "#fafafa" }}>
-              <tr>
-                <th style={th}>Fecha</th>
-                <th style={th}>Empresa</th>
-                <th style={th}>Normativa</th>
-                <th style={th}>%</th>
-                <th style={th}>Nivel</th>
-                <th style={th}>Vence</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 ? (
+        <div className="res-card">
+          <div className="res-card-head">
+            <h3>Evaluaciones</h3>
+            <button className="btn-primary" onClick={fetchList} disabled={busy}>
+              {busy ? "Actualizando…" : "Actualizar"}
+            </button>
+          </div>
+
+          <div className="res-table-wrap">
+            <table className="res-table">
+              <thead>
                 <tr>
-                  <td colSpan={7} style={{ padding: 16, textAlign: "center", color: "#666" }}>
-                    {busy ? "Cargando…" : "Sin evaluaciones"}
-                  </td>
+                  <th>Fecha</th>
+                  <th>Empresa</th>
+                  <th>Normativa</th>
+                  <th>%</th>
+                  <th>Nivel</th>
+                  <th>Vence</th>
+                  <th></th>
                 </tr>
-              ) : (
-                items.map((it) => (
-                  <tr key={it.id} style={{ borderTop: "1px solid #f0f0f0" }}>
-                    <td style={td}>
-                      {it.started_at ? new Date(it.started_at).toLocaleString() : "—"}
-                    </td>
-                    <td style={td}>{it.company_name || "—"}</td>
-                    <td style={td}>{it.normativa || "—"}</td>
-                    <td style={td}>{typeof it.pct === "number" ? `${Math.round(it.pct)}%` : "—"}</td>
-                    <td style={td}>{it.level || "—"}</td>
-                    <td style={td}>{it.due_at ? new Date(it.due_at).toLocaleString() : "—"}</td>
-                    <td style={{ ...td, textAlign: "right" }}>
-                      <button
-                        onClick={() => openDetail(it.id)}
-                        style={{
-                          padding: "8px 14px",
-                          border: "1px solid #ddd",
-                          background: "white",
-                          borderRadius: 8,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Abrir
-                      </button>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="res-empty">
+                      {busy ? "Cargando…" : "Sin evaluaciones"}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  items.map((it) => (
+                    <tr key={it.id}>
+                      <td className="res-date">
+                        <div>
+                          {it.started_at
+                            ? new Date(it.started_at).toLocaleDateString()
+                            : "—"}
+                        </div>
+                        <small>
+                          {it.started_at
+                            ? new Date(it.started_at).toLocaleTimeString()
+                            : ""}
+                        </small>
+                      </td>
+                      <td>{it.company_name || "—"}</td>
+                      <td>{it.normativa || "—"}</td>
+                      <td>{pct(it)}</td>
+                      <td>
+                        <span className={levelClass(it.level || it.nivel)}>
+                          {it.level || it.nivel || "—"}
+                        </span>
+                      </td>
+                      <td className="res-date">
+                        <div>
+                          {it.due_at
+                            ? new Date(it.due_at).toLocaleDateString()
+                            : "—"}
+                        </div>
+                        <small>
+                          {it.due_at
+                            ? new Date(it.due_at).toLocaleTimeString()
+                            : ""}
+                        </small>
+                      </td>
+                      <td className="res-actions">
+                        <button
+                          className="btn-secondary"
+                          onClick={() => openDetail(it.id)}
+                        >
+                          Abrir
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
-
-const th = {
-  textAlign: "left",
-  padding: "10px 12px",
-  color: "#555",
-  fontWeight: 600,
-  borderBottom: "1px solid #eee",
-};
-
-const td = { padding: "10px 12px", color: "#333" };

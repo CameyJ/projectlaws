@@ -1,25 +1,43 @@
 .navbar {
-  width: 100vw;
+  width: 100%;
   background: #1a0536;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 80px;
-  padding: 0 2vw;
+
+  height: 64px;
+  padding: 0 20px;
   box-sizing: border-box;
+
+  border-bottom: 1px solid #ffffff14;
+  backdrop-filter: blur(4px);
 }
 
+.navbar-logo{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .navbar-logo img {
-  height: 44px;
-  cursor: pointer;
+  /* ↑ antes: 40px */
+  height: 48px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .navbar-links {
   flex: 1;
   display: flex;
-  justify-content: center; /* Centra los links */
+  justify-content: center;
   align-items: center;
-  gap: 2vw;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -27,7 +45,6 @@
 }
 
 .navbar-links li {
-  flex: 1 1 0;
   display: flex;
   justify-content: center;
 }
@@ -35,14 +52,14 @@
 .navbar-links li a {
   color: #b5a8ff;
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1rem;
   text-decoration: none;
-  padding: 12px 20px;
-  border-radius: 6px;
-  transition: background 0.2s;
-  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
   text-align: center;
   display: block;
+  white-space: nowrap;
 }
 
 .navbar-links li a:hover {
@@ -51,47 +68,48 @@
 }
 
 .logout-btn {
-  margin-left: 2vw;
+  margin-left: 14px;
   background: #ff7a2f;
   color: #fff;
   font-weight: 700;
   border: none;
   border-radius: 8px;
-  font-size: 1.1rem;
-  padding: 12px 28px;
+  font-size: 0.95rem;
+  padding: 10px 16px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
 }
 .logout-btn:hover {
   background: #ff4e00;
+  box-shadow: 0 6px 16px #ff4e0033;
 }
 
-/* RESPONSIVE para pantallas pequeñas */
+/* RESPONSIVE */
 @media (max-width: 900px) {
   .navbar {
-    flex-direction: column;
+    flex-wrap: wrap;
     height: auto;
-    padding: 8px 2vw;
+    padding: 8px 12px;
+    row-gap: 8px;
   }
   .navbar-links {
-    gap: 1vw;
+    order: 2;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .logout-btn {
-    margin: 16px 0 0 0;
-    width: 90vw;
+    order: 3;
+    width: 100%;
+    margin: 6px 0 0 0;
   }
 }
 
 @media (max-width: 600px) {
   .navbar-links li a {
-    font-size: 1rem;
-    padding: 8px 6px;
+    font-size: 0.95rem;
+    padding: 8px 10px;
   }
-  .logout-btn {
-    font-size: 1rem;
-    padding: 10px 12px;
-  }
-  .navbar-logo img {
-    height: 36px;
-  }
+  .navbar-logo img { height: 42px; } /* un poco menor en móvil */
 }

@@ -1,11 +1,16 @@
 .page-container {
-  min-height: calc(100vh - 100px); /* Ajusta este valor si tu navbar es más pequeña */
-  width: 100vw;
+  /* variable de padding lateral configurable por breakpoint */
+  --page-pad-x: 2rem;
+
+  min-height: calc(100vh - 100px);
+  width: 100%;
   background: #fafbfc;
-  /* Padding: top right bottom left */
-  padding: 100px 2rem 2rem 2rem;  /* <- 100px top igual a navbar */
+
+  /* top right bottom left usando la variable */
+  padding: 100px var(--page-pad-x) 2rem var(--page-pad-x);
   box-sizing: border-box;
   margin: 0;
+
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -22,23 +27,22 @@
 /* Responsive para pantallas medianas */
 @media (max-width: 900px) {
   .page-container {
-    padding: 80px 1rem 1.5rem 1rem; /* Navbar un poco más compacta */
+    --page-pad-x: 1rem;
+    padding: 80px var(--page-pad-x) 1.5rem var(--page-pad-x);
   }
-  .page-container h1 {
-    font-size: 2.1rem;
-  }
+  .page-container h1 { font-size: 2.1rem; }
 }
 
 /* Responsive para móviles */
 @media (max-width: 600px) {
   .page-container {
-    min-height: calc(100vh - 70px); /* Navbar aún más pequeña */
-    padding: 70px 0.5rem 0.8rem 0.5rem;
+    --page-pad-x: 0.5rem;
+    min-height: calc(100vh - 70px);
+    padding: 70px var(--page-pad-x) 0.8rem var(--page-pad-x);
   }
-  .page-container h1 {
-    font-size: 1.25rem;
-  }
+  .page-container h1 { font-size: 1.25rem; }
 }
+
 /* ----------------------- */
 /* Estilos para Home.jsx   */
 /* ----------------------- */
@@ -49,42 +53,16 @@
   margin-bottom: 2rem;
 }
 
-.laws-section {
-  width: 100%;
-  margin-top: 2rem;
-}
+.laws-section { width: 100%; margin-top: 2rem; }
+.laws-section h2 { font-size: 1.75rem; margin-bottom: 1rem; color: #6a1b9a; }
 
-.laws-section h2 {
-  font-size: 1.75rem;
-  margin-bottom: 1rem;
-  color: #6a1b9a;
-}
-
-.law-buttons {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-}
-
+.law-buttons { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
 .law-button {
-  background-color: #7b2cbf;
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  text-decoration: none;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
+  background-color: #7b2cbf; color: #fff; padding: 0.75rem 1.5rem; border-radius: 0.5rem;
+  text-decoration: none; font-weight: 500; transition: background-color 0.2s ease;
 }
-
-.law-button:hover {
-  background-color: #9d4edd;
-}
-
-.laws-section .note {
-  font-size: 0.9rem;
-  color: #666;
-}
+.law-button:hover { background-color: #9d4edd; }
+.laws-section .note { font-size: 0.9rem; color: #666; }
 
 :root{
   --bg: #fafbfc;
@@ -104,6 +82,12 @@
   background: linear-gradient(135deg,#f6f2ff 0%, #eef6ff 100%);
   padding: clamp(2rem,5vw,4rem) 1rem;
   border-bottom: 1px solid #eef1f4;
+
+  /* Hacer el hero “full-bleed” dentro de .page-container */
+  margin-left: calc(-1 * var(--page-pad-x));
+  margin-right: calc(-1 * var(--page-pad-x));
+  /* evita recortes de sombras/gradientes */
+  overflow: hidden;
 }
 
 .home-hero__inner{
@@ -139,11 +123,7 @@
   margin-bottom: 1.2rem;
 }
 
-.home-hero__cta{
-  display: flex;
-  gap: .8rem;
-  flex-wrap: wrap;
-}
+.home-hero__cta{ display: flex; gap: .8rem; flex-wrap: wrap; }
 
 /* ---------- BOTONES ---------- */
 .btn{
@@ -151,30 +131,19 @@
   gap:.45rem; text-decoration:none; font-weight:600; border-radius:.8rem;
   padding:.8rem 1.1rem; transition: all .2s ease; border:1px solid transparent;
 }
-
 .btn-primary{
   background: var(--accent); color:#fff; border-color: var(--accent);
   box-shadow: 0 6px 16px rgba(255,107,0,.22);
 }
 .btn-primary:hover{ filter: brightness(.95); transform: translateY(-1px); }
-
-.btn-ghost{
-  background: transparent; color: var(--primary-600); border-color: var(--primary-300);
-}
+.btn-ghost{ background: transparent; color: var(--primary-600); border-color: var(--primary-300); }
 .btn-ghost:hover{ background: #f4edff; }
-
-.btn-light{
-  background:#f7f7fb; color: var(--ink); border-color:#ececf3;
-}
+.btn-light{ background:#f7f7fb; color: var(--ink); border-color:#ececf3; }
 .btn-light:hover{ background:#efeff7; }
 
 /* ---------- PASOS ---------- */
-.home-steps{
-  max-width: 1050px; margin: 2.2rem auto; padding: 0 1rem;
-}
-.home-steps__grid{
-  display:grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;
-}
+.home-steps{ max-width: 1050px; margin: 2.2rem auto; padding: 0 1rem; }
+.home-steps__grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 @media (max-width: 900px){ .home-steps__grid{ grid-template-columns: 1fr; } }
 
 .card{
@@ -194,19 +163,9 @@
 .step__text{ color: var(--muted); font-size: .95rem; }
 
 /* ---------- LEYES ---------- */
-.laws-section{
-  max-width:1050px; margin: 2.5rem auto 4rem; padding: 0 1rem;
-}
-
-.laws-title{
-  font-size: clamp(1.4rem, 3vw, 1.8rem);
-  color: var(--ink);
-  margin-bottom: 1rem;
-}
-
-.laws-grid{
-  display:grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;
-}
+.laws-section{ max-width:1050px; margin: 2.5rem auto 4rem; padding: 0 1rem; }
+.laws-title{ font-size: clamp(1.4rem, 3vw, 1.8rem); color: var(--ink); margin-bottom: 1rem; }
+.laws-grid{ display:grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 @media (max-width: 900px){ .laws-grid{ grid-template-columns: 1fr; } }
 
 .law{ padding:1.25rem; }
@@ -216,13 +175,13 @@
 }
 .law__title{ font-size:1.15rem; color:var(--ink); margin: .1rem 0 .25rem; }
 .law__text{ color:var(--muted); margin-bottom:.9rem; }
-
 .law__actions{ display:flex; gap:.6rem; flex-wrap:wrap; }
 
+/* Ajustes seguros extra */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+.home-hero,
+.home-steps,
+.laws-section { overflow-x: hidden; }
 
-.g-card{ background:#fff; border:1px solid #eaeaea; border-radius:12px; padding:16px; box-shadow:0 4px 16px rgba(0,0,0,.03);}
-.btn-primary{ background:#7b2cbf; color:#fff; border:none; border-radius:8px; cursor:pointer;}
-.btn-primary:hover{ filter:brightness(1.05);}
-.row{ display:flex; flex-direction:column; gap:.4rem; margin:.5rem 0;}
-.row input{ padding:.6rem .75rem; border:1px solid #dcdcdc; border-radius:8px;}
-.g-table th, .g-table td{ font-size:.95rem; }
