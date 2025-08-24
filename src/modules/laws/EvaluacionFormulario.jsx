@@ -1,8 +1,7 @@
 // src/modules/laws/EvaluacionFormulario.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { useEffect, useMemo, useState } from "react";
 import { authHeader } from "../../utils/authHeader";
+import { generarPdfCumplimiento } from "../../utils/pdfReporteCumplimiento";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -21,7 +20,6 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
 
   // Evidencias por control
   const [evidencias, setEvidencias] = useState({});
-  const resultadoRef = useRef();
 
   // Empresa seleccionada (derivado)
   const selectedCompanyName = useMemo(() => {
@@ -287,38 +285,21 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
       .filter((c) => c.comentario.length > 0);
   }, [resultado]);
 
-  // PDF
-  const downloadPdf = () => {
-    const el = resultadoRef.current;
-    if (!el) return;
-    html2canvas(el, { scale: 2 }).then((canvas) => {
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "pt", "a4");
-      const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = pdf.internal.pageSize.getHeight();
+  // ===== PDF PRO (misma plantilla que resultados) =====
+  const onDescargarPdf = () => {
+    if (!resultado) return;
 
-      const ley = String(normativaSeleccionada || "").trim();
-      const fecha = new Date().toISOString().slice(0, 10);
-
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.text(`Resultado de evaluación — ${ley}`, 40, 40);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10);
-      pdf.text(`Empresa: ${selectedCompanyName || "-"}`, 40, 56);
-      pdf.text(`Fecha: ${fecha}`, 40, 70);
-
-      const top = 84,
-        bottom = 30;
-      const availH = pdfH - top - bottom;
-      const img = pdf.getImageProperties(imgData);
-      const w = pdfW - 80;
-      let h = (img.height * w) / img.width;
-      if (h > availH) h = availH;
-      pdf.addImage(imgData, "PNG", 40, top, w, h);
-
-      const safe = (s) => s.replace(/[^\w\-]+/g, "_");
-      pdf.save(`Evaluacion_${safe(ley)}_${fecha}.pdf`);
+    generarPdfCumplimiento({
+      empresa: selectedCompanyName || "-",
+      normativa: (normativaSeleccionada || "-").toUpperCase(),
+      started_at: resultado.started_at,
+      due_at: resultado.due_at,
+      status: "open",
+      pct: resultado.cumplimiento ?? 0,
+      nivel: resultado.nivel ?? undefined, // si no viene, se infiere del pct
+      controles,                // viene de /api/controles/{normativa}
+      answers: respuestas,      // mapa { clave: 'true|partial|false' }
+      comments: comentarios,    // mapa { clave: 'texto' }
     });
   };
 
@@ -509,7 +490,6 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
       {resultado && (
         <>
           <div
-            ref={resultadoRef}
             style={{
               flex: 1,
               backgroundColor: "#e3f2fd",
@@ -598,7 +578,7 @@ export default function EvaluacionFormulario({ normativaSeleccionada }) {
           </div>
 
           <button
-            onClick={downloadPdf}
+            onClick={onDescargarPdf}
             style={{
               marginTop: 20,
               backgroundColor: "#00695c",

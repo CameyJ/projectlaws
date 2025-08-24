@@ -1,0 +1,1169 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 8534
+>>
+stream
+0.200025 w
+0 G
+BT
+/F2 20 Tf
+23. TL
+0. g
+40. 801.8899999999999864 Td
+(Informe de evaluación — GDPR) Tj
+ET
+0.36 0.42 1. RG
+0.36 0.42 1. rg
+40. 775.8899999999999864 515.2799999999999727 -2. re
+f
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 757.8899999999999864 Td
+(Empresa: MAVE) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 741.8899999999999864 Td
+(Fecha: 2025-08-24) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 721.8899999999999864 Td
+(Estimada empresa MAVE,) Tj
+T* () Tj
+T* (Se ha llevado a cabo el análisis de la evaluación del cumplimiento de la normativa GDPR \(Reglamento) Tj
+T* (General de Protección de Datos\), con el objetivo de determinar el nivel de madurez de la organización en) Tj
+T* (materia de protección de datos personales y la libre circulación de los mismos dentro de la Unión) Tj
+T* (Europea.) Tj
+T* () Tj
+T* (A continuación, se presenta un resumen de los hallazgos identificados durante la auditoría, junto con) Tj
+T* (comentarios específicos sobre el nivel de implementación de los controles requeridos y las áreas que) Tj
+T* (requieren mejora para alcanzar un cumplimiento integral y consistente.) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0. g
+40. 571.8899999999999864 Td
+(Resumen) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 557.8899999999999864 Td
+(Cumplimiento: 57%) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 543.8899999999999864 Td
+(Nivel: Bajo) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 529.8899999999999864 Td
+(Inicio: 23/8/2025, 9:19:05 p. m.) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 515.8899999999999864 Td
+(Vence: 30/8/2025, 9:19:05 p. m.) Tj
+ET
+BT
+/F1 11 Tf
+12.6499999999999986 TL
+0. g
+40. 501.8899999999999864 Td
+(Estado: open) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0. g
+40. 481.8899999999999864 Td
+(Controles no cumplidos) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.36 0.42 1. RG
+0.200025 w
+0.36 0.42 1. rg
+0.78 G
+0. w
+0.36 0.42 1. rg
+40. 471.8899999999999864 260. -23.5 re
+f
+BT
+/F2 10 Tf
+11.5 TL
+1. g
+46. 457.3899999999999864 Td
+(Control) Tj
+ET
+0.36 0.42 1. rg
+0.78 G
+0. w
+0.36 0.42 1. rg
+300. 471.8899999999999864 140. -23.5 re
+f
+BT
+/F2 10 Tf
+11.5 TL
+1. g
+306. 457.3899999999999864 Td
+(Artículo) Tj
+ET
+0.36 0.42 1. rg
+0.78 G
+0. w
+0.36 0.42 1. rg
+440. 471.8899999999999864 170. -23.5 re
+f
+BT
+/F2 10 Tf
+11.5 TL
+1. g
+446. 457.3899999999999864 Td
+(Recomendación) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 448.3899999999999864 260. -69.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+46. 433.8899999999999864 Td
+(¿Se aplica esta normativa al tratamiento de datos) Tj
+T* (personales realizado por medios automatizados y no) Tj
+T* (automatizados cuando estos forman parte de un) Tj
+T* (sistema de archivo o están destinados a formar parte de) Tj
+T* (uno?  ¿Quiere) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 448.3899999999999864 140. -69.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+306. 433.8899999999999864 Td
+(Material scope) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 448.3899999999999864 170. -69.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+446. 433.8899999999999864 Td
+(Implementar este control.) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 378.8899999999999864 260. -58. re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+46. 364.3899999999999864 Td
+(¿El tratamiento cumple de forma consistente con licitud,) Tj
+T* (lealtad y transparencia, finalidad determinada,) Tj
+T* (minimización, exactitud, limitación de conservación e) Tj
+T* (integridad y confidencialidad?) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+300. 378.8899999999999864 140. -58. re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+306. 364.3899999999999864 Td
+(Principles relating to) Tj
+T* (processing of personal data) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+440. 378.8899999999999864 170. -58. re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+446. 364.3899999999999864 Td
+(Revisar y completar este control.) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 320.8899999999999864 260. -35. re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+46. 306.3899999999999864 Td
+(¿Cada tratamiento se apoya en una base jurídica válida) Tj
+T* (y documentada para la finalidad prevista?) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 320.8899999999999864 140. -35. re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+306. 306.3899999999999864 Td
+(Lawfulness of processing) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 320.8899999999999864 170. -35. re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+446. 306.3899999999999864 Td
+(Revisar y completar este control.) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 285.8899999999999864 260. -46.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+46. 271.3899999999999864 Td
+(¿El responsable demuestra consentimiento libre,) Tj
+T* (específico e informado cuando corresponde y permite) Tj
+T* (retirarlo con la misma facilidad con que se otorgó?) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+300. 285.8899999999999864 140. -46.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+306. 271.3899999999999864 Td
+(Conditions for consent) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+440. 285.8899999999999864 170. -46.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+446. 271.3899999999999864 Td
+(Revisar y completar este control.) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 239.3899999999999864 260. -69.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+46. 224.8899999999999864 Td
+(¿Se verifica la edad y, cuando procede, se obtiene) Tj
+T* (autorización de la persona responsable parental antes) Tj
+T* (de prestar servicios de la sociedad de la información a) Tj
+T* (menores?) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 239.3899999999999864 140. -69.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+306. 224.8899999999999864 Td
+(\(1\) of the Charter of) Tj
+T* (Fundamental Rights of the) Tj
+T* (European Union \(the) Tj
+T* ('Charter'\) and Article 16\(1\) of) Tj
+T* (the) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 239.3899999999999864 170. -69.5 re
+f
+BT
+/F1 10 Tf
+11.5 TL
+0.314 g
+446. 224.8899999999999864 Td
+(Revisar y completar este control.) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.78 G
+0. w
+0.36 0.42 1. RG
+0.200025 w
+0.36 0.42 1. RG
+0.200025 w
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0. g
+40. 153.8899999999999864 Td
+(Detalle de respuestas) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.36 0.42 1. RG
+0.200025 w
+0.94 g
+0.78 G
+0. w
+0.94 g
+40. 143.8899999999999864 260. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+45. 131.2400000000000091 Td
+(Control) Tj
+ET
+0.94 g
+0.78 G
+0. w
+0.94 g
+300. 143.8899999999999864 140. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+305. 131.2400000000000091 Td
+(Artículo) Tj
+ET
+0.94 g
+0.78 G
+0. w
+0.94 g
+440. 143.8899999999999864 70. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+445. 131.2400000000000091 Td
+(Respuesta) Tj
+ET
+0.94 g
+0.78 G
+0. w
+0.94 g
+510. 143.8899999999999864 190. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+515. 131.2400000000000091 Td
+(Comentario) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 123.5399999999999636 260. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 110.8899999999999864 Td
+(¿Cumple esta normativa con el objetivo de proteger los datos) Tj
+T* (personales de las personas físicas y garantizar la libre) Tj
+T* (circulación de dichos datos dentro de la Unión Europea?) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 123.5399999999999636 140. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 110.8899999999999864 Td
+(Subject-matter and objectives) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 123.5399999999999636 70. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 110.8899999999999864 Td
+(Sí) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+510. 123.5399999999999636 190. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 110.8899999999999864 Td
+(a) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 82.4900000000000091 260. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 69.8400000000000318 Td
+(¿Se aplica esta normativa al tratamiento de datos personales) Tj
+T* (realizado por medios automatizados y no automatizados) Tj
+T* (cuando estos forman parte de un sistema de archivo o están) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+300. 82.4900000000000091 140. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 69.8400000000000318 Td
+(Material scope) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+440. 82.4900000000000091 70. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 69.8400000000000318 Td
+(No) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+510. 82.4900000000000091 190. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 69.8400000000000318 Td
+(ada) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.36 0.42 1. RG
+0.200025 w
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.471 g
+40. 12. Td
+(Generado el 2025-08-24 — Leyes-App) Tj
+ET
+0.78 G
+0. w
+endstream
+endobj
+5 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 6 0 R
+>>
+endobj
+6 0 obj
+<<
+/Length 5769
+>>
+stream
+0. w
+0.78 G
+0.94 g
+0.78 G
+0. w
+0.94 g
+40. 801.8899999999999864 260. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+45. 789.2400000000000091 Td
+(Control) Tj
+ET
+0.94 g
+0.78 G
+0. w
+0.94 g
+300. 801.8899999999999864 140. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+305. 789.2400000000000091 Td
+(Artículo) Tj
+ET
+0.94 g
+0.78 G
+0. w
+0.94 g
+440. 801.8899999999999864 70. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+445. 789.2400000000000091 Td
+(Respuesta) Tj
+ET
+0.94 g
+0.78 G
+0. w
+0.94 g
+510. 801.8899999999999864 190. -20.3500000000000014 re
+f
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.129 g
+515. 789.2400000000000091 Td
+(Comentario) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+1. g
+0.78 G
+0. w
+1. g
+40. 781.5399999999999636 260. -20.3500000000000014 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 768.8899999999999864 Td
+(destinados a formar parte de uno?  ¿Quiere) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+300. 781.5399999999999636 140. -20.3500000000000014 re
+f
+1. g
+0.78 G
+0. w
+1. g
+440. 781.5399999999999636 70. -20.3500000000000014 re
+f
+1. g
+0.78 G
+0. w
+1. g
+510. 781.5399999999999636 190. -20.3500000000000014 re
+f
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 761.1899999999999409 260. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 748.5399999999999636 Td
+(¿La organización realiza el tratamiento de datos personales en) Tj
+T* (el marco de sus actividades dentro de la Unión Europea, sin) Tj
+T* (importar si dicho tratamiento ocurre fuera del territorio de la) Tj
+T* (Unión?) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 761.1899999999999409 140. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 748.5399999999999636 Td
+(Territorial scope) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 761.1899999999999409 70. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 748.5399999999999636 Td
+(Sí) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+510. 761.1899999999999409 190. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 748.5399999999999636 Td
+(ada) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 709.7899999999999636 260. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 697.1399999999999864 Td
+(¿El tratamiento cumple de forma consistente con licitud,) Tj
+T* (lealtad y transparencia, finalidad determinada, minimización,) Tj
+T* (exactitud, limitación de conservación e integridad y) Tj
+T* (confidencialidad?) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+300. 709.7899999999999636 140. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 697.1399999999999864 Td
+(Principles relating to processing) Tj
+T* (of personal data) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+440. 709.7899999999999636 70. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 697.1399999999999864 Td
+(Parcial) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+510. 709.7899999999999636 190. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 697.1399999999999864 Td
+(ad) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 658.3899999999999864 260. -30.6999999999999993 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 645.7400000000000091 Td
+(¿Cada tratamiento se apoya en una base jurídica válida y) Tj
+T* (documentada para la finalidad prevista?) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 658.3899999999999864 140. -30.6999999999999993 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 645.7400000000000091 Td
+(Lawfulness of processing) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 658.3899999999999864 70. -30.6999999999999993 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 645.7400000000000091 Td
+(Parcial) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+510. 658.3899999999999864 190. -30.6999999999999993 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 645.7400000000000091 Td
+(aad) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 627.6900000000000546 260. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 615.0399999999999636 Td
+(¿El responsable demuestra consentimiento libre, específico e) Tj
+T* (informado cuando corresponde y permite retirarlo con la misma) Tj
+T* (facilidad con que se otorgó?) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+300. 627.6900000000000546 140. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 615.0399999999999636 Td
+(Conditions for consent) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+440. 627.6900000000000546 70. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 615.0399999999999636 Td
+(Parcial) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+510. 627.6900000000000546 190. -41.0499999999999972 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 615.0399999999999636 Td
+(ada) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 586.6399999999999864 260. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+45. 573.9900000000000091 Td
+(¿Se verifica la edad y, cuando procede, se obtiene) Tj
+T* (autorización de la persona responsable parental antes de) Tj
+T* (prestar servicios de la sociedad de la información a menores?) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+300. 586.6399999999999864 140. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+305. 573.9900000000000091 Td
+(\(1\) of the Charter of) Tj
+T* (Fundamental Rights of the) Tj
+T* (European Union \(the 'Charter'\)) Tj
+T* (and Article 16\(1\) of the) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+440. 586.6399999999999864 70. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+445. 573.9900000000000091 Td
+(Parcial) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+510. 586.6399999999999864 190. -51.3999999999999986 re
+f
+BT
+/F1 9 Tf
+10.3499999999999996 TL
+0.314 g
+515. 573.9900000000000091 Td
+(asda) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+0.78 G
+0. w
+0.36 0.42 1. RG
+0.200025 w
+BT
+/F2 9 Tf
+10.3499999999999996 TL
+0.471 g
+40. 12. Td
+(Generado el 2025-08-24 — Leyes-App) Tj
+ET
+0.36 0.42 1. RG
+0.200025 w
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R 5 0 R ]
+/Count 2
+>>
+endobj
+7 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+8 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+9 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+10 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+12 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+13 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+14 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+15 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+16 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+19 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+20 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 7 0 R
+/F2 8 0 R
+/F3 9 0 R
+/F4 10 0 R
+/F5 11 0 R
+/F6 12 0 R
+/F7 13 0 R
+/F8 14 0 R
+/F9 15 0 R
+/F10 16 0 R
+/F11 17 0 R
+/F12 18 0 R
+/F13 19 0 R
+/F14 20 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+21 0 obj
+<<
+/Producer (jsPDF 3.0.1)
+/CreationDate (D:20250823212048-06'00')
+>>
+endobj
+22 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 23
+0000000000 65535 f 
+0000014696 00000 n 
+0000016521 00000 n 
+0000000015 00000 n 
+0000000152 00000 n 
+0000008738 00000 n 
+0000008875 00000 n 
+0000014759 00000 n 
+0000014884 00000 n 
+0000015014 00000 n 
+0000015147 00000 n 
+0000015285 00000 n 
+0000015409 00000 n 
+0000015538 00000 n 
+0000015670 00000 n 
+0000015806 00000 n 
+0000015934 00000 n 
+0000016061 00000 n 
+0000016190 00000 n 
+0000016323 00000 n 
+0000016425 00000 n 
+0000016771 00000 n 
+0000016857 00000 n 
+trailer
+<<
+/Size 23
+/Root 22 0 R
+/Info 21 0 R
+/ID [ <46FDF4CE768E16B20660E4387BBAA04B> <46FDF4CE768E16B20660E4387BBAA04B> ]
+>>
+startxref
+16961
+%%EOF

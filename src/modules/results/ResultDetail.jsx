@@ -1,7 +1,7 @@
 // src/modules/results/ResultDetail.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useNavigate, useParams } from "react-router-dom";
 import { authHeader } from "../../utils/authHeader";
 
@@ -20,11 +20,11 @@ export default function ResultDetail() {
   const [controles, setControles] = useState([]);
 
   // estados por control
-  const [answers, setAnswers] = useState({});      // { clave: "true|partial|false" }
-  const [comments, setComments] = useState({});    // { clave: "..." }
+  const [answers, setAnswers] = useState({});
+  const [comments, setComments] = useState({});
 
   // evidencias por control
-  const [evidencias, setEvidencias] = useState({}); // { clave: { filesToSend:[], uploaded:[], uploading:false, err:"" } }
+  const [evidencias, setEvidencias] = useState({});
 
   const resultRef = useRef();
 
@@ -66,7 +66,7 @@ export default function ResultDetail() {
           setControles(Array.isArray(list) ? list : []);
         }
 
-        // inicial de evidencias
+        // inicial evidencias
         const evd = {};
         (data.respuestas || []).forEach((row) => {
           const k = row.control_clave || row.clave;
@@ -90,14 +90,35 @@ export default function ResultDetail() {
 
   const fmtNivel = (pct) => (pct >= 80 ? "Alto" : pct >= 60 ? "Medio" : pct >= 40 ? "Bajo" : "Crítico");
 
+  const pct = ev?.cumplimiento ?? ev?.pct ?? 0;
+  const nivel = ev?.nivel || fmtNivel(pct);
+
+  /* ----------------------------- helpers ----------------------------- */
+  // Intenta construir “Art. 1 — Subject-matter and objectives”
+  const getArticleLabel = (meta) => {
+    if (!meta) return "-";
+    const code =
+      meta.articulo_code ||
+      meta.art_code ||
+      meta.code ||
+      meta.articulo || // a veces el backend pone aquí el código
+      null;
+
+    const title =
+      meta.articulo_titulo ||
+      meta.art_title ||
+      meta.title ||
+      (meta.articulo && !code ? meta.articulo : null); // fallback si “articulo” realmente era el título
+
+    if (code && title) return `${code} — ${title}`;
+    if (code) return `${code}`;
+    if (title) return `${title}`;
+    return "-";
+  };
+
   /* ----------------------------- handlers UI ----------------------------- */
-
-  const setAnswer = (clave, value) =>
-    setAnswers((p) => ({ ...p, [clave]: value }));
-
-  const setComment = (clave, value) =>
-    setComments((p) => ({ ...p, [clave]: value }));
-
+  const setAnswer = (clave, value) => setAnswers((p) => ({ ...p, [clave]: value }));
+  const setComment = (clave, value) => setComments((p) => ({ ...p, [clave]: value }));
   const showEvidenceBlock = (val) => val === "true" || val === "partial";
 
   const onPickFiles = (clave, fileList) => {
@@ -127,8 +148,6 @@ export default function ResultDetail() {
       const fd = new FormData();
       fd.append("normativa", String(ev?.normativa || "").toUpperCase());
       fd.append("clave", clave);
-      // si tu backend ya soporta evaluation_id, descomenta:
-      // fd.append("evaluation_id", id);
       item.filesToSend.forEach((f) => fd.append("files", f));
 
       const h = authHeader() || {};
@@ -164,28 +183,24 @@ export default function ResultDetail() {
   const saveControl = async (clave) => {
     try {
       const h = authHeader() || {};
-      const r = await fetch(
-        `${API}/api/evaluaciones/${id}/respuestas/${encodeURIComponent(clave)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", ...h },
-          body: JSON.stringify({
-            valor: answers[clave] || "",
-            comentario: (comments[clave] || "").trim(),
-          }),
-        }
-      );
+      const r = await fetch(`${API}/api/evaluaciones/${id}/respuestas/${encodeURIComponent(clave)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...h },
+        body: JSON.stringify({
+          valor: answers[clave] || "",
+          comentario: (comments[clave] || "").trim(),
+        }),
+      });
       if (!r.ok) {
         const t = await r.text().catch(() => "");
         throw new Error(t || "No se pudo guardar");
       }
       const data = await r.json();
-      // refrescar cabecera con el mismo estilo que evaluación
       setEv((prev) =>
         prev
           ? {
               ...prev,
-              cumplimiento: data.cumplimiento ?? prev.cumplimiento,
+              cumplimiento: data.cumplimiento ?? data.pct ?? prev.cumplimiento,
               nivel: data.nivel ?? prev.nivel,
             }
           : prev
@@ -197,50 +212,170 @@ export default function ResultDetail() {
     }
   };
 
-  /* -------------------------------- PDF -------------------------------- */
-  const downloadPdf = () => {
-    const el = resultRef.current;
-    if (!el) return;
-    html2canvas(el, { scale: 2 }).then((canvas) => {
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "pt", "a4");
-      const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = pdf.internal.pageSize.getHeight();
-      const top = 40;
-      const bottom = 30;
-      const availH = pdfH - top - bottom;
-      const img = pdf.getImageProperties(imgData);
-      const w = pdfW - 60;
-      let h = (img.height * w) / img.width;
-      if (h > availH) h = availH;
+  /* ------------------------------ PDF PRO ------------------------------ */
+  const downloadReportPdf = () => {
+    if (!ev) return;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const margin = 40;
+    let y = margin;
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(18);
-      pdf.text(`Evaluación — ${ev?.normativa || ""}`, 30, 28);
-      pdf.addImage(imgData, "PNG", 30, top, w, h);
-      pdf.save(
-        `Evaluacion_${String(ev?.normativa || "NORMATIVA")
-          .replace(/[^\w\-]+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`
-      );
+    // colores
+    const ACCENT = [91, 107, 255];
+    const fecha = new Date().toISOString().slice(0, 10);
+    const empresa = ev.company_name || "-";
+    const normativa = ev.normativa || "-";
+    const started = ev.started_at ? new Date(ev.started_at).toLocaleString() : "-";
+    const due = ev.due_at ? new Date(ev.due_at).toLocaleString() : "-";
+
+    // Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Informe de evaluación — ${normativa}`, margin, y);
+    y += 26;
+
+    doc.setDrawColor(...ACCENT);
+    doc.setFillColor(...ACCENT);
+    doc.rect(margin, y, doc.internal.pageSize.getWidth() - margin * 2, 2, "F");
+    y += 18;
+
+    // Cabecera breve
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Empresa: ${empresa}`, margin, y); y += 16;
+    doc.text(`Fecha: ${fecha}`, margin, y); y += 20;
+
+    // Introducción
+    const intro =
+      `Estimada empresa ${empresa},\n\n` +
+      `Se ha llevado a cabo el análisis de la evaluación del cumplimiento de la normativa ${normativa} ` +
+      `(Reglamento General de Protección de Datos), con el objetivo de determinar el nivel de madurez ` +
+      `de la organización en materia de protección de datos personales y la libre circulación de los mismos ` +
+      `dentro de la Unión Europea.\n\n` +
+      `A continuación, se presenta un resumen de los hallazgos identificados durante la auditoría, junto con ` +
+      `comentarios específicos sobre el nivel de implementación de los controles requeridos y las áreas que ` +
+      `requieren mejora para alcanzar un cumplimiento integral y consistente.`;
+
+    const introLines = doc.splitTextToSize(intro, doc.internal.pageSize.getWidth() - margin * 2);
+    doc.text(introLines, margin, y);
+    y += introLines.length * 14 + 10;
+
+    // Resumen
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Resumen", margin, y);
+    y += 14;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    const resumen = [
+      `Cumplimiento: ${Math.round(pct)}%`,
+      `Nivel: ${nivel}`,
+      `Inicio: ${started}`,
+      `Vence: ${due}`,
+      `Estado: ${ev.status || "open"}`,
+    ];
+    resumen.forEach((line) => { doc.text(line, margin, y); y += 14; });
+    y += 6;
+
+    // Incumplimientos
+    const incumplimientos = [];
+    (ev.respuestas || []).forEach((row) => {
+      const clave = row.control_clave || row.clave;
+      const v = answers[clave] || row.valor || "";
+      if (v !== "true") {
+        const meta = controlesByKey.get(clave) || {};
+        const recomendacion = v === "partial" ? "Revisar y completar este control." : "Implementar este control.";
+        incumplimientos.push({
+          control: meta.pregunta || `Control ${clave}`,
+          articulo: getArticleLabel(meta),
+          recomendacion,
+        });
+      }
     });
+
+    if (incumplimientos.length) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("Controles no cumplidos", margin, y);
+      y += 10;
+
+      autoTable(doc, {
+        startY: y,
+        head: [["Control", "Artículo", "Recomendación"]],
+        body: incumplimientos.map((i) => [i.control, i.articulo, i.recomendacion]),
+        styles: { fontSize: 10, cellPadding: 6 },
+        headStyles: { fillColor: ACCENT, textColor: 255, fontStyle: "bold" },
+        margin: { left: margin, right: margin },
+        columnStyles: {
+          0: { cellWidth: 258 }, // control
+          1: { cellWidth: 133 }, // artículo (más angosto)
+          2: { cellWidth: 100 }, // recomendación
+        },
+      });
+      y = doc.lastAutoTable.finalY + 16;
+    }
+
+    // Tabla de respuestas
+    const tableRows = (ev.respuestas || []).map((row, idx) => {
+      const clave = row.control_clave || row.clave;
+      const meta = controlesByKey.get(clave) || {};
+      const v = (answers[clave] || row.valor || "")
+        .replace("true", "Sí")
+        .replace("partial", "Parcial")
+        .replace("false", "No");
+      const comentario = (comments[clave] || row.comentario || "").trim();
+      return [
+        meta.pregunta || `Control ${idx + 1}`,
+        getArticleLabel(meta),
+        v || "-",
+        comentario || "-",
+      ];
+    });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Detalle de respuestas", margin, y);
+    y += 10;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Control", "Artículo", "Respuesta", "Comentario"]],
+      body: tableRows,
+      styles: { fontSize: 9, cellPadding: 5, valign: "top" },
+      headStyles: { fillColor: [240, 240, 240], textColor: 33, fontStyle: "bold" },
+      margin: { left: margin, right: margin },
+      columnStyles: {
+        0: { cellWidth: 180 }, // control
+        1: { cellWidth: 100 }, // artículo (código + título)
+        2: { cellWidth: 70 },  // respuesta
+        3: { cellWidth: 140 }, // comentario
+      },
+      didDrawPage: (data) => {
+        const str = `Generado el ${fecha} — Leyes-App`;
+        doc.setFontSize(9);
+        doc.setTextColor(120);
+        doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 12);
+      },
+    });
+
+    const safe = (s) => String(s || "").replace(/[^\w\-]+/g, "_");
+    doc.save(`Informe_${safe(normativa)}_${fecha}.pdf`);
   };
 
   if (loading) return <div className="page-container"><p>Cargando…</p></div>;
   if (err) return <div className="page-container"><p style={{ color: "#c62828" }}>{err}</p></div>;
   if (!ev) return null;
 
-  const pct = ev.cumplimiento ?? ev.pct ?? 0;
-  const nivel = ev.nivel || fmtNivel(pct);
-
   return (
     <div className="page-container" style={{ paddingTop: 18 }}>
       {/* encabezado */}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
         <h1 style={{ margin: 0 }}>Evaluación — {ev.normativa}</h1>
-        <button className="btn-link" onClick={() => navigate(-1)} style={{ marginLeft: 6 }}>
-          Volver
-        </button>
-        <button className="btn-link" onClick={downloadPdf}>Descargar PDF</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn-secondary" onClick={() => navigate(-1)}>Volver</button>
+          <button className="btn-primary" onClick={downloadReportPdf}>Descargar PDF</button>
+        </div>
       </div>
 
       {/* layout responsive: sidebar izquierda + contenido */}
@@ -250,7 +385,7 @@ export default function ResultDetail() {
           <div className="g-card" style={{ padding: 14 }}>
             <h3 style={{ margin: "0 0 10px 0", color: "#1565c0" }}>Resultado</h3>
             <p><strong>Empresa:</strong> {ev.company_name || "-"}</p>
-            <p><strong>Cumplimiento:</strong> {pct}%</p>
+            <p><strong>Cumplimiento:</strong> {Math.round(pct)}%</p>
             <p>
               <strong>Nivel:</strong>{" "}
               <span
@@ -278,7 +413,7 @@ export default function ResultDetail() {
                 <br />
                 <small>
                   <strong>Fecha límite:</strong>{" "}
-                  {new Date(ev.due_at).toLocaleString()}
+                  {ev.due_at ? new Date(ev.due_at).toLocaleString() : "-"}
                 </small>
               </p>
             )}
@@ -300,13 +435,13 @@ export default function ResultDetail() {
                 <div key={clave || idx} className="g-card" style={{ padding: 12 }}>
                   {/* título */}
                   <div style={{ marginBottom: 8, fontWeight: 600 }}>
-                    {ctrl.pregunta ? ctrl.pregunta : `Art. ${clave}`}
-                    {ctrl.articulo ? (
+                    {ctrl.pregunta ? ctrl.pregunta : `Control ${clave}`}
+                    {getArticleLabel(ctrl) !== "-" && (
                       <span style={{ opacity: 0.7, fontWeight: 400 }}>
                         {" "}
-                        <em>(Art. {ctrl.articulo}{ctrl.articulo_titulo ? `, ${ctrl.articulo_titulo}` : ""})</em>
+                        <em>({getArticleLabel(ctrl)})</em>
                       </span>
-                    ) : null}
+                    )}
                   </div>
 
                   {/* botones */}
@@ -330,7 +465,7 @@ export default function ResultDetail() {
                       onClick={() => setAnswer(clave, "partial")}
                       style={{
                         background: val === "partial" ? "#ffc107" : "#eee",
-                        color: val === "partial" ? "#111" : "#111",
+                        color: "#111",
                         border: "none",
                         borderRadius: 6,
                         padding: "6px 10px",
@@ -366,8 +501,8 @@ export default function ResultDetail() {
                     />
                   </div>
 
-                  {/* evidencias (igual que en evaluación) */}
-                  {showEvidenceBlock(val) && (
+                  {/* evidencias */}
+                  {(val === "true" || val === "partial") && (
                     <div
                       style={{
                         margin: "10px 0",
