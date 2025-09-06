@@ -1,9 +1,9 @@
 import "../../modules/laws/Laws.css";
-import evaluacionImg from "../../assets/logoLOGIN.png"; // placeholder para logos
+
+//import evaluacionImg from "../../assets/LogoLOGIN.png";  // placeholder para logos
 import { useState } from "react";
 import EvaluacionFormulario from "./EvaluacionFormulario";
-
-const logoGDPR = evaluacionImg; // cámbialos cuando tengas los logos reales
+const logoGDPR = "/assets/logoLOGIN.png" // cámbialos cuando tengas los logos reales
 const logoSOX  = evaluacionImg;
 
 const Laws = () => {
